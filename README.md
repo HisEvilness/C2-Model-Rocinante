@@ -9,4 +9,4 @@ This dashboard estimates survival probabilities and casualties over long-term co
 - Adjustable simulation parameters
 - Visual outputs for survival and attrition forecasts
 
-Built with Streamlit.
+Built with Streamlit. Visit Dashboard: https://c2-model-rocinante.streamlit.app/
