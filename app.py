@@ -124,5 +124,11 @@ st.markdown("""
 - Historical calibration based on 24 of 25 major conflicts
 - Weapon system weights derived from conventional & hybrid war models (artillery dominant)
 
+**Core Model Logic:**
+Casualties are driven by weighted daily impacts across units, adjusted for operational effects:
+- Adjusted Daily Loss = Base Rate × Commander × Morale × EW × Medical × Logistics
+- Total Casualties = Adjusted Daily Loss × Duration
+- Weapon System Breakdown uses % attribution
+
 > For feedback or deeper strategic implementation, contact project lead via GitHub.
 """)
