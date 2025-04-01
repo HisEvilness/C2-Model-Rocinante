@@ -40,15 +40,6 @@ with col1:
 )",
     ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
     default=["VDV", "Armoured"]
-)",
-    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
-    default=["VDV", "Armoured"]
-)",
-    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
-    default=["VDV", "Armoured"]
-)",
-    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured"],
-    default=["VDV", "Armoured"]
 )
     medevac_efficiency_russia = st.slider("MedEvac Efficiency (Force 1)", 0.0, 1.0, 0.85)
     ew_effectiveness_russia = st.slider("EW Disruption Factor (Force 1)", 0.0, 1.0, 0.75)
@@ -65,15 +56,6 @@ with col2:
     default=["Infantry", "Territorial"]
 )",
     ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
-    default=["Infantry", "Territorial"]
-)",
-    ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
-    default=["Infantry", "Territorial"]
-)",
-    ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
-    default=["Infantry", "Territorial"]
-)",
-    ["Infantry", "Territorial", "Mechanized", "Armoured"],
     default=["Infantry", "Territorial"]
 )
     medevac_efficiency_ukraine = st.slider("MedEvac Efficiency (Force 2)", 0.0, 1.0, 0.50)
