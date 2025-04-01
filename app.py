@@ -39,7 +39,7 @@ with st.sidebar:
     base_ukr = 600 if not high_intensity else 3500
 
     st.markdown("---")
-    st.caption("Check to enable or disable weapon system contributions")
+    st.caption("Enable or disable weapon system contributions")
     artillery_on = st.checkbox("Include Artillery", value=True)
     drones_on = st.checkbox("Include Drones", value=True)
     snipers_on = st.checkbox("Include Snipers", value=True)
@@ -60,15 +60,16 @@ weapons = {
 }
 
 # Function to compute weapon-based casualties
+
 def compute_casualties(base_casualty, exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod, days):
     daily = {}
     total = {}
-    modifier = exp_mod * ew_mod * (1 - cmd_mod) * moral_mod * (1 - med_mod) * logi_mod
     for weapon, share in weapons.items():
-        daily_val = base_casualty * share * modifier
+        daily_val = base_casualty * share * exp_mod * ew_mod * moral_mod * logi_mod * (1 - cmd_mod) * (1 - med_mod)
         daily[weapon] = round(daily_val, 1)
         total[weapon] = round(daily_val * days)
     return daily, total
+
 
 def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
     daily, total = compute_casualties(base, exp, ew, cmd, moral, med, logi, days)
@@ -85,8 +86,5 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral
 # Footer
 st.markdown("""
 ---
-**Credits:**  
-Strategic Modeling by Infinity Fabric LLC  
-Dashboard Engine: Streamlit  
-Data Sources: Mediazona, BBC Russia, 24-Conflict Historical Dataset
+**Credits:** Dashboard and casualty logic by Infinity Fabric LLC
 """)
