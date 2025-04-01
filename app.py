@@ -35,6 +35,9 @@ with col1:
     commander_rating_russia = st.selectbox("Commander Rating (Force 1)", ["A++", "A+", "A", "B"], index=0)
     unit_type_russia = st.multiselect(
     "✔ Select Unit Types for Force 1 (Russia)",
+    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
+    default=["VDV", "Armoured"]
+)",
     ["VDV", "Marines", "Infantry", "Mechanized", "Armoured"],
     default=["VDV", "Armoured"]
 )
@@ -49,6 +52,9 @@ with col2:
     commander_rating_ukraine = st.selectbox("Commander Rating (Force 2)", ["A++", "A+", "A", "B"], index=2)
     unit_type_ukraine = st.multiselect(
     "✔ Select Unit Types for Force 2 (Ukraine)",
+    ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
+    default=["Infantry", "Territorial"]
+)",
     ["Infantry", "Territorial", "Mechanized", "Armoured"],
     default=["Infantry", "Territorial"]
 )
@@ -64,7 +70,8 @@ unit_kd_modifier = {
     "Infantry": 10,
     "Territorial": 5,
     "Mechanized": 12,
-    "Armoured": 18
+    "Armoured": 18,
+    "Motorised": 8
 }
 
 def avg_kd(unit_list):
