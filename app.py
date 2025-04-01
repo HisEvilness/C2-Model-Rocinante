@@ -5,7 +5,7 @@ import pandas as pd
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
 
 st.markdown("""
-This dashboard models cumulative casualty estimates for the ongoing Russo-Ukrainian conflict. 
+This dashboard models cumulative casualty estimates for the ongoing Russo-Ukrainian conflict.
 It leverages a battle-tested attrition and survival modeling framework validated across 24 of 25 modern conflicts, incorporating:
 
 ✔️ Weapon system lethality (Artillery, Drones, ATGMs, etc.)  
@@ -52,14 +52,14 @@ weapon_systems = {
 
 # Unit casualty factors
 unit_casualty_factors = {
-    "Mechanized": (80, 200),
-    "Infantry": (100, 240),
-    "VDV (Airborne)": (90, 210),
-    "Marines": (95, 220),
-    "Armored": (110, 250),
-    "Volunteer Units": (140, 320),
-    "Territorial Defense Units": (120, 280),
-    "PMCs": (100, 240)
+    "Mechanized": (90, 210),
+    "Infantry": (110, 260),
+    "VDV (Airborne)": (100, 230),
+    "Marines": (105, 240),
+    "Armored": (120, 270),
+    "Volunteer Units": (150, 330),
+    "Territorial Defense Units": (130, 290),
+    "PMCs": (110, 250)
 }
 
 # Country Units Selection
