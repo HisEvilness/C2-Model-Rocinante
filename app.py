@@ -132,3 +132,4 @@ with col2:
     st.write(f"**Kill Ratio Modifier**: {avg_kd(unit_type_ukraine):.1f}:1")
 
 st.info("This is a validated model (96% historical accuracy) using your strategic doctrine framework.")
+
