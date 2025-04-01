@@ -4,8 +4,11 @@ import pandas as pd
 # Title
 st.title("Casualty & Survival Dashboard: Russo-Ukrainian Conflict")
 
+# Sidebar for Settings
+st.sidebar.header("Model Settings")
+
 # Unit Selection for Force 1 (Russia) - All units selected by default
-st.header("Force 1: Russia")
+st.sidebar.subheader("Force 1: Russia")
 unit_types_russia = {
     "Mechanized": (60, 150),
     "Infantry": (80, 200),
@@ -16,15 +19,14 @@ unit_types_russia = {
     "Volunteer Units": (130, 300)
 }
 
-# Force 1 Unit selection (All units selected by default)
 selected_units_russia = []
 for unit, (low, high) in unit_types_russia.items():
-    selected = st.checkbox(f"Russia - {unit}", value=True)  # Default selected
+    selected = st.sidebar.checkbox(f"Russia - {unit}", value=True)  # Default selected
     if selected:
         selected_units_russia.append((unit, low, high))
 
 # Unit Selection for Force 2 (Ukraine) - All units selected by default
-st.header("Force 2: Ukraine")
+st.sidebar.subheader("Force 2: Ukraine")
 unit_types_ukraine = {
     "Mechanized": (60, 150),
     "Infantry": (80, 200),
@@ -35,18 +37,22 @@ unit_types_ukraine = {
     "Volunteer Units": (130, 300)
 }
 
-# Force 2 Unit selection (All units selected by default)
 selected_units_ukraine = []
 for unit, (low, high) in unit_types_ukraine.items():
-    selected = st.checkbox(f"Ukraine - {unit}", value=True)  # Default selected
+    selected = st.sidebar.checkbox(f"Ukraine - {unit}", value=True)  # Default selected
     if selected:
         selected_units_ukraine.append((unit, low, high))
 
 # Conflict Duration
-duration_days = st.slider("Duration of Conflict (Days)", min_value=30, max_value=1500, step=30, value=300)
+duration_days = st.sidebar.slider("Duration of Conflict (Days)", min_value=30, max_value=1500, step=30, value=300)
 
-# Commander Effect
-commander_effect = st.slider("Commander Effectiveness Modifier (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
+# Commander Effect (for both Russia and Ukraine)
+commander_effect_russia = st.sidebar.slider("Commander Effectiveness (Russia) (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
+commander_effect_ukraine = st.sidebar.slider("Commander Effectiveness (Ukraine) (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
+
+# Electronic Warfare Impact (for both Russia and Ukraine)
+ew_effect_russia = st.sidebar.slider("EW Effectiveness (Russia) (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
+ew_effect_ukraine = st.sidebar.slider("EW Effectiveness (Ukraine) (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
 
 # Weapon System Efficiency Baseline
 weapon_systems = {
@@ -63,15 +69,15 @@ weapon_systems = {
 total_low_russia = 0
 total_high_russia = 0
 for unit, low, high in selected_units_russia:
-    total_low_russia += int(low * duration_days * commander_effect)
-    total_high_russia += int(high * duration_days * commander_effect)
+    total_low_russia += int(low * duration_days * commander_effect_russia * ew_effect_russia)
+    total_high_russia += int(high * duration_days * commander_effect_russia * ew_effect_russia)
 
 # Calculate Casualties for Force 2 (Ukraine)
 total_low_ukraine = 0
 total_high_ukraine = 0
 for unit, low, high in selected_units_ukraine:
-    total_low_ukraine += int(low * duration_days * commander_effect)
-    total_high_ukraine += int(high * duration_days * commander_effect)
+    total_low_ukraine += int(low * duration_days * commander_effect_ukraine * ew_effect_ukraine)
+    total_high_ukraine += int(high * duration_days * commander_effect_ukraine * ew_effect_ukraine)
 
 # Casualty Calculation by Weapon System for Force 1 (Russia)
 casualty_data_russia = {}
