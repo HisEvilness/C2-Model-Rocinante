@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="Survival, Attrition & Efficiency Dashboard", layout="centered")
+st.set_page_config(page_title="C2 Survival, Attrition & Efficiency Dashboard", layout="centered")
 
 st.title("🪖 Survival, Attrition & Efficiency Dashboard")
 st.markdown("""
