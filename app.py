@@ -93,9 +93,10 @@ def survival_probability_extended(T_initial, daily_casualties, rotation_days, re
     monthly_reinforcement = T_initial * (reinforce_pct / 100)
     total_reinforcement = monthly_reinforcement * (duration_days / 30)
     effective_troops = T_initial + total_reinforcement
-    survival_daily = 1 - (daily_casualties / effective_troops)
+    survival_daily = max(0.0001, 1 - (daily_casualties / effective_troops))
     base_survival = survival_daily ** exposure_cycles
-    return base_survival * morale_factor * (1 + cmd_bonus)
+    final_survival = base_survival * morale_factor * (1 + cmd_bonus)
+    return min(1.0, final_survival)
 
 morale_russia = 1.05 * (1 - morale_decay_russia)
 morale_ukraine = 0.95 * (1 - morale_decay_ukraine)
