@@ -33,7 +33,11 @@ with col1:
     rotation_russia = st.slider("Rotation Cycle (Days)", 30, 365, 120)
     reinforce_russia = st.slider("Monthly Reinforcement %", 0.0, 5.0, 1.0)
     commander_rating_russia = st.selectbox("Commander Rating (Force 1)", ["A++", "A+", "A", "B"], index=0)
-    unit_type_russia = st.multiselect("Force 1 Unit Composition", ["VDV", "Marines", "Infantry", "Mechanized", "Armoured"], default=["VDV"])
+    unit_type_russia = st.multiselect(
+    "✔ Select Unit Types for Force 1 (Russia)",
+    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured"],
+    default=["VDV", "Armoured"]
+)
     medevac_efficiency_russia = st.slider("MedEvac Efficiency (Force 1)", 0.0, 1.0, 0.85)
     ew_effectiveness_russia = st.slider("EW Disruption Factor (Force 1)", 0.0, 1.0, 0.75)
 
@@ -43,7 +47,11 @@ with col2:
     rotation_ukraine = st.slider("Rotation Cycle (Days)", 30, 365, 180)
     reinforce_ukraine = st.slider("Monthly Reinforcement %", 0.0, 5.0, 0.5)
     commander_rating_ukraine = st.selectbox("Commander Rating (Force 2)", ["A++", "A+", "A", "B"], index=2)
-    unit_type_ukraine = st.multiselect("Force 2 Unit Composition", ["Infantry", "Territorial", "Mechanized", "Armoured"], default=["Infantry"])
+    unit_type_ukraine = st.multiselect(
+    "✔ Select Unit Types for Force 2 (Ukraine)",
+    ["Infantry", "Territorial", "Mechanized", "Armoured"],
+    default=["Infantry", "Territorial"]
+)
     medevac_efficiency_ukraine = st.slider("MedEvac Efficiency (Force 2)", 0.0, 1.0, 0.50)
     ew_effectiveness_ukraine = st.slider("EW Disruption Factor (Force 2)", 0.0, 1.0, 0.20)
 
