@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
 
 # Title
@@ -23,17 +22,7 @@ duration_days = st.slider("Duration of Conflict (Days)", min_value=30, max_value
 # Commander Effect
 commander_effect = st.slider("Commander Effectiveness Modifier (0.8 - 1.2)", min_value=0.8, max_value=1.2, step=0.01, value=1.0)
 
-# Electronic Warfare Efficiency
-ew_efficiency = st.slider("Electronic Warfare Disruption (0.0 - 1.0)", min_value=0.0, max_value=1.0, step=0.05, value=0.5)
-
-# Terrain Type
-terrain = st.radio("Battlefield Terrain", ["Urban", "Open", "Mixed"])
-terrain_modifier = {"Urban": 1.2, "Open": 1.0, "Mixed": 1.1}[terrain]
-
-# Morale Modifier
-morale = st.slider("Morale Modifier (0.5 - 1.0)", 0.5, 1.0, step=0.05, value=0.9)
-
-# Weapon System Efficiency Baseline
+# Weapon System Efficiency Baseline (modifiable if extended)
 weapon_systems = {
     "Artillery": 0.70,
     "Drones": 0.10,
@@ -56,14 +45,12 @@ unit_casualty_factors = {
 }
 
 low_daily, high_daily = unit_casualty_factors[unit_type]
-low_total = int(low_daily * duration_days * commander_effect * terrain_modifier)
-high_total = int(high_daily * duration_days * commander_effect * terrain_modifier)
+low_total = int(low_daily * duration_days * commander_effect)
+high_total = int(high_daily * duration_days * commander_effect)
 
 # Casualty Calculation by Weapon System
 casualty_data = {}
 for system, contribution in weapon_systems.items():
-    if system in ["Drones", "Air Strikes"]:
-        contribution *= (1 - ew_efficiency)
     casualty_data[system] = {
         "Low Estimate": int(low_total * contribution),
         "High Estimate": int(high_total * contribution)
@@ -82,19 +69,16 @@ st.dataframe(df)
 # Survival Probability (decay-based model without initial troop count)
 daily_survival_low = 1 - (low_daily / (low_daily + 1))
 daily_survival_high = 1 - (high_daily / (high_daily + 1))
-survival_low = (daily_survival_low ** duration_days) * morale
-survival_high = (daily_survival_high ** duration_days) * morale
+survival_low = daily_survival_low ** duration_days
+survival_high = daily_survival_high ** duration_days
 
 st.subheader("Estimated Survival Rates (Probability Over Duration)")
 st.metric(label="High Survival Rate", value=f"{survival_high:.2%}")
 st.metric(label="Low Survival Rate", value=f"{survival_low:.2%}")
 
-# Plotting
-fig, ax = plt.subplots()
-df.plot(kind='bar', ax=ax)
-plt.title("Casualties by Weapon System")
-plt.ylabel("Personnel")
-st.pyplot(fig)
+# Display bar chart of casualties by weapon system
+st.subheader("Weapon System Casualty Breakdown")
+st.bar_chart(df)
 
 # Footer
-st.caption("Model based on empirical casualty rates, commander effect, morale, terrain, and electronic warfare. Survival rates use decay functions aligned with historic conflict benchmarks and Mediazona data.")
+st.caption("Model based on empirical casualty rates, commander effect, and system efficiency inputs. Survival rates are calculated via decay functions, aligned with historic conflict benchmarks and Mediazona figures.")
