@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Title
-st.title("Casualty & Survival Dashboard: Russo-Ukrainian Conflict")
+st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
 
 # Sidebar Inputs
 with st.sidebar:
@@ -27,7 +27,7 @@ with st.sidebar:
     medical_rus = st.slider("Russian Medical Support Efficiency", 0.8, 1.2, 1.1, 0.01)
     medical_ukr = st.slider("Ukrainian Medical Support Efficiency", 0.8, 1.2, 0.9, 0.01)
 
-# Weapon System Efficiency Baseline (modifiable if extended)
+# Weapon System Efficiency Baseline
 weapon_systems = {
     "Artillery": 0.70,
     "Drones": 0.10,
@@ -51,7 +51,8 @@ unit_casualty_factors = {
 }
 
 # Country Units Selection
-rus_units = st.multiselect("Russian Units", options=list(unit_casualty_factors.keys()), default=list(unit_casualty_factors.keys()))
+rus_units = st.multiselect("Russian Units", options=list(unit_casualty_factors.keys()), default=[
+    "Mechanized", "Infantry", "VDV (Airborne)", "Marines", "Armored", "Territorial Defense Units", "PMCs"])
 ukr_units = st.multiselect("Ukrainian Units", options=list(unit_casualty_factors.keys()), default=list(unit_casualty_factors.keys()))
 
 def calculate_casualties(units, duration, commander_eff, ew_eff, morale, medical):
@@ -77,20 +78,9 @@ def calculate_by_weapon(total_low, total_high):
         }
     return pd.DataFrame(data).T
 
-def calculate_survival(daily_low, daily_high, days, force_size):
-    daily_rate_low = daily_low / force_size
-    daily_rate_high = daily_high / force_size
-    surv_low = ((1 - daily_rate_low) ** days)
-    surv_high = ((1 - daily_rate_high) ** days)
-    return max(0.0, min(surv_low, 1.0)), max(0.0, min(surv_high, 1.0))
-
 # Compute Casualties
 rus_low, rus_high = calculate_casualties(rus_units, duration_days, commander_effect_rus, ew_effect_rus, morale_rus, medical_rus)
 ukr_low, ukr_high = calculate_casualties(ukr_units, duration_days, commander_effect_ukr, ew_effect_ukr, morale_ukr, medical_ukr)
-
-# Force estimation based on units selected
-force_size_rus = len(rus_units) * 800
-force_size_ukr = len(ukr_units) * 800
 
 # Display Russia
 st.header("🇷🇺 Russian Forces")
@@ -100,10 +90,6 @@ st.dataframe(df_rus)
 st.metric("Total Casualties (Low)", f"{rus_low:,}")
 st.metric("Total Casualties (High)", f"{rus_high:,}")
 
-rus_surv_low, rus_surv_high = calculate_survival(rus_low/duration_days, rus_high/duration_days, duration_days, force_size_rus)
-st.metric("Survival Rate (Low)", f"{rus_surv_low:.2%}")
-st.metric("Survival Rate (High)", f"{rus_surv_high:.2%}")
-
 # Display Ukraine
 st.header("🇺🇦 Ukrainian Forces")
 df_ukr = calculate_by_weapon(ukr_low, ukr_high)
@@ -112,9 +98,5 @@ st.dataframe(df_ukr)
 st.metric("Total Casualties (Low)", f"{ukr_low:,}")
 st.metric("Total Casualties (High)", f"{ukr_high:,}")
 
-ukr_surv_low, ukr_surv_high = calculate_survival(ukr_low/duration_days, ukr_high/duration_days, duration_days, force_size_ukr)
-st.metric("Survival Rate (Low)", f"{ukr_surv_low:.2%}")
-st.metric("Survival Rate (High)", f"{ukr_surv_high:.2%}")
-
 # Footer
-st.caption("Model based on empirical casualty rates, adjusted for commander effect, morale, EW, and medical support. Survival rates derived using probabilistic decay from daily loss estimates.")
+st.caption("Model based on empirical casualty rates, adjusted for commander effect, morale, EW, and medical support. Survival rate logic temporarily disabled to improve model integrity.")
