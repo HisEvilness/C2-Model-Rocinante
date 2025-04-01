@@ -44,7 +44,7 @@ with st.sidebar:
         st.caption("High-intensity combat activated: intensity locked at 1.25x")
 
     # Russia
-    st.subheader("🇷🇺 Russian Parameters")
+    st.subheader("\U0001F1F7\U0001F1FA Russian Parameters")
     commander_effect_rus = st.slider("Commander Effectiveness", 0.8, 1.2, 1.1, 0.01)
     ew_effect_rus = st.slider("Electronic Warfare Impact", 0.8, 1.2, 0.9, 0.01)
     morale_rus = st.slider("Morale Factor", 0.8, 1.2, 1.1, 0.01)
@@ -52,7 +52,7 @@ with st.sidebar:
     logistics_rus = st.slider("Logistics Support", 0.8, 1.2, 1.05, 0.01)
 
     # Ukraine
-    st.subheader("🇺🇦 Ukrainian Parameters")
+    st.subheader("\U0001F1FA\U0001F1E6 Ukrainian Parameters")
     commander_effect_ukr = st.slider("Commander Effectiveness", 0.8, 1.2, 0.9, 0.01)
     ew_effect_ukr = st.slider("Electronic Warfare Impact", 0.8, 1.2, 1.1, 0.01)
     morale_ukr = st.slider("Morale Factor", 0.8, 1.2, 0.9, 0.01)
@@ -114,7 +114,7 @@ rus_low, rus_high, rus_daily_low, rus_daily_high = calculate_casualties(rus_unit
 ukr_low, ukr_high, ukr_daily_low, ukr_daily_high = calculate_casualties(ukr_units, duration_days, commander_effect_ukr, ew_effect_ukr, morale_ukr, medical_ukr, logistics_ukr, intensity)
 
 # Russian Output
-st.header("🇷🇺 Russian Forces")
+st.header("\U0001F1F7\U0001F1FA Russian Forces")
 st.dataframe(calculate_by_weapon(rus_low, rus_high))
 st.metric("Total Casualties (Low)", f"{rus_low:,}")
 st.metric("Total Casualties (High)", f"{rus_high:,}")
@@ -122,7 +122,7 @@ st.metric("Daily Casualties (Low)", f"{rus_daily_low:,}")
 st.metric("Daily Casualties (High)", f"{rus_daily_high:,}")
 
 # Ukrainian Output
-st.header("🇺🇦 Ukrainian Forces")
+st.header("\U0001F1FA\U0001F1E6 Ukrainian Forces")
 st.dataframe(calculate_by_weapon(ukr_low, ukr_high))
 st.metric("Total Casualties (Low)", f"{ukr_low:,}")
 st.metric("Total Casualties (High)", f"{ukr_high:,}")
@@ -133,9 +133,7 @@ st.metric("Daily Casualties (High)", f"{ukr_daily_high:,}")
 st.markdown("""
 ---
 **Model Summary**
-- Reflects doctrinal weights: Artillery ~70%, Drones ~10%, others scaled
-- Adjusts for morale, command, logistics, EW, and medical support
-- Conflict intensity and unit mix shape outcomes
-
-**Contact for calibrated simulations or integration with military R&D systems.**
+- Artillery remains the dominant casualty source, consistent with conflict benchmarks
+- Experience, EW, logistics, morale, and command factors dynamically shape outcomes
+- Adjust sliders for scenario simulation or conflict modeling
 """)
