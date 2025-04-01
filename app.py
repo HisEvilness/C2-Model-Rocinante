@@ -9,23 +9,23 @@ with st.sidebar:
     st.header("Scenario Settings")
 
     # Conflict Duration
-    duration_days = st.slider("Duration of Conflict (Days)", min_value=30, max_value=1500, step=30, value=300)
+    duration_days = st.slider("Duration of Conflict (Days)", min_value=30, max_value=1500, step=30, value=1031)
 
     # Commander Effect
-    commander_effect_rus = st.slider("Russian Commander Efficiency", 0.8, 1.2, 1.0, 0.01)
-    commander_effect_ukr = st.slider("Ukrainian Commander Efficiency", 0.8, 1.2, 1.0, 0.01)
+    commander_effect_rus = st.slider("Russian Commander Efficiency", 0.8, 1.2, 1.1, 0.01)
+    commander_effect_ukr = st.slider("Ukrainian Commander Efficiency", 0.8, 1.2, 0.9, 0.01)
 
     # EW Effect
-    ew_effect_rus = st.slider("Russian Electronic Warfare Impact", 0.8, 1.2, 1.0, 0.01)
-    ew_effect_ukr = st.slider("Ukrainian Electronic Warfare Impact", 0.8, 1.2, 1.0, 0.01)
+    ew_effect_rus = st.slider("Russian Electronic Warfare Impact", 0.8, 1.2, 0.9, 0.01)
+    ew_effect_ukr = st.slider("Ukrainian Electronic Warfare Impact", 0.8, 1.2, 1.1, 0.01)
 
     # Morale Effect
-    morale_rus = st.slider("Russian Morale Factor", 0.8, 1.2, 1.0, 0.01)
-    morale_ukr = st.slider("Ukrainian Morale Factor", 0.8, 1.2, 1.0, 0.01)
+    morale_rus = st.slider("Russian Morale Factor", 0.8, 1.2, 1.1, 0.01)
+    morale_ukr = st.slider("Ukrainian Morale Factor", 0.8, 1.2, 0.9, 0.01)
 
     # Medical Support
-    medical_rus = st.slider("Russian Medical Support Efficiency", 0.8, 1.2, 1.0, 0.01)
-    medical_ukr = st.slider("Ukrainian Medical Support Efficiency", 0.8, 1.2, 1.0, 0.01)
+    medical_rus = st.slider("Russian Medical Support Efficiency", 0.8, 1.2, 1.1, 0.01)
+    medical_ukr = st.slider("Ukrainian Medical Support Efficiency", 0.8, 1.2, 0.9, 0.01)
 
 # Weapon System Efficiency Baseline (modifiable if extended)
 weapon_systems = {
@@ -74,7 +74,6 @@ def calculate_by_weapon(total_low, total_high):
     return pd.DataFrame(data).T
 
 def calculate_survival(daily_low, daily_high, days):
-    # Adjusted model to stabilize survival over wide day ranges
     base_force = 10000  # Assumed baseline force per unit
     daily_rate_low = daily_low / base_force
     daily_rate_high = daily_high / base_force
