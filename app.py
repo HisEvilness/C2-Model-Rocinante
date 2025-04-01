@@ -72,13 +72,11 @@ def compute_casualties(base_casualty, exp_mod, ew_mod, cmd_mod, moral_mod, med_m
 
 def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
     daily, total = compute_casualties(base, exp, ew, cmd, moral, med, logi, days)
-    df = pd.DataFrame({"Low Estimate": daily, "High Estimate": total})
+    df = pd.DataFrame({"Daily Estimate": daily, "Cumulative": total})
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
-    st.metric("Total Casualties (Low)", f"{sum(daily.values()):,.0f}")
-    st.metric("Total Casualties (High)", f"{sum(total.values()):,}")
-    st.metric("Daily Casualties (Low)", f"{sum(daily.values()):,.0f}")
-    st.metric("Daily Casualties (High)", f"{sum(total.values())/days:,.0f}")
+    st.metric("Total Casualties", f"{sum(total.values()):,}")
+    st.metric("Daily Casualties", f"{sum(daily.values()):,.1f}")
 
 # Display force outputs
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_rus, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
@@ -89,6 +87,6 @@ st.markdown("""
 ---
 **Credits:**  
 Strategic Modeling by Infinity Fabric LLC  
-Data Benchmarking: Mediazona / BBC Russia, 24 Conflict Dataset  
-Engineered in Streamlit • Deployed on GitHub
+Dashboard Engine: Streamlit  
+Data Sources: Mediazona, BBC Russia, 24-Conflict Historical Dataset
 """)
