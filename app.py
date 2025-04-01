@@ -44,6 +44,9 @@ with col1:
     ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
     default=["VDV", "Armoured"]
 )",
+    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
+    default=["VDV", "Armoured"]
+)",
     ["VDV", "Marines", "Infantry", "Mechanized", "Armoured"],
     default=["VDV", "Armoured"]
 )
@@ -58,6 +61,9 @@ with col2:
     commander_rating_ukraine = st.selectbox("Commander Rating (Force 2)", ["A++", "A+", "A", "B"], index=2)
     unit_type_ukraine = st.multiselect(
     "✔ Select Unit Types for Force 2 (Ukraine)",
+    ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
+    default=["Infantry", "Territorial"]
+)",
     ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
     default=["Infantry", "Territorial"]
 )",
