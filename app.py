@@ -56,12 +56,16 @@ ukr_units = st.multiselect("Ukrainian Units", options=list(unit_casualty_factors
 
 def calculate_casualties(units, duration, commander_eff, ew_eff, morale, medical):
     low_total, high_total = 0, 0
+    ew_effect = 1.0 - (ew_eff - 1.0)
+    medical_effect = 1.0 - (medical - 1.0)
     for unit in units:
         low, high = unit_casualty_factors[unit]
         low *= duration
         high *= duration
-        low_total += int(low * commander_eff * morale / ew_eff / medical)
-        high_total += int(high * commander_eff * morale / ew_eff / medical)
+        adj_low = int(low * commander_eff * morale * ew_effect * medical_effect)
+        adj_high = int(high * commander_eff * morale * ew_effect * medical_effect)
+        low_total += adj_low
+        high_total += adj_high
     return low_total, high_total
 
 def calculate_by_weapon(total_low, total_high):
@@ -73,10 +77,9 @@ def calculate_by_weapon(total_low, total_high):
         }
     return pd.DataFrame(data).T
 
-def calculate_survival(daily_low, daily_high, days):
-    base_force = 10000  # Assumed baseline force per unit
-    daily_rate_low = daily_low / base_force
-    daily_rate_high = daily_high / base_force
+def calculate_survival(daily_low, daily_high, days, force_size):
+    daily_rate_low = daily_low / force_size
+    daily_rate_high = daily_high / force_size
     surv_low = ((1 - daily_rate_low) ** days)
     surv_high = ((1 - daily_rate_high) ** days)
     return max(0.0, min(surv_low, 1.0)), max(0.0, min(surv_high, 1.0))
@@ -84,6 +87,10 @@ def calculate_survival(daily_low, daily_high, days):
 # Compute Casualties
 rus_low, rus_high = calculate_casualties(rus_units, duration_days, commander_effect_rus, ew_effect_rus, morale_rus, medical_rus)
 ukr_low, ukr_high = calculate_casualties(ukr_units, duration_days, commander_effect_ukr, ew_effect_ukr, morale_ukr, medical_ukr)
+
+# Force estimation based on units selected
+force_size_rus = len(rus_units) * 800
+force_size_ukr = len(ukr_units) * 800
 
 # Display Russia
 st.header("🇷🇺 Russian Forces")
@@ -93,7 +100,7 @@ st.dataframe(df_rus)
 st.metric("Total Casualties (Low)", f"{rus_low:,}")
 st.metric("Total Casualties (High)", f"{rus_high:,}")
 
-rus_surv_low, rus_surv_high = calculate_survival(rus_low/duration_days, rus_high/duration_days, duration_days)
+rus_surv_low, rus_surv_high = calculate_survival(rus_low/duration_days, rus_high/duration_days, duration_days, force_size_rus)
 st.metric("Survival Rate (Low)", f"{rus_surv_low:.2%}")
 st.metric("Survival Rate (High)", f"{rus_surv_high:.2%}")
 
@@ -105,7 +112,7 @@ st.dataframe(df_ukr)
 st.metric("Total Casualties (Low)", f"{ukr_low:,}")
 st.metric("Total Casualties (High)", f"{ukr_high:,}")
 
-ukr_surv_low, ukr_surv_high = calculate_survival(ukr_low/duration_days, ukr_high/duration_days, duration_days)
+ukr_surv_low, ukr_surv_high = calculate_survival(ukr_low/duration_days, ukr_high/duration_days, duration_days, force_size_ukr)
 st.metric("Survival Rate (Low)", f"{ukr_surv_low:.2%}")
 st.metric("Survival Rate (High)", f"{ukr_surv_high:.2%}")
 
