@@ -8,13 +8,14 @@ st.markdown("""
 
 This model, codenamed **Rocinante**, was initially developed to evaluate force survival and attrition in the **Russo-Ukrainian conflict**. It has since been stress-tested and validated across **24 out of 25 modern conflicts**, demonstrating high predictive reliability under varying doctrines and operational conditions.
 
-Built using advanced mathematical attrition logic, battlefield fatigue, reinforcement cycles, electronic warfare impact, and force commander efficiency ratings.
+Built using advanced mathematical attrition logic, battlefield fatigue, reinforcement cycles, electronic warfare impact, vehicle survivability, logistical capacity, and force commander efficiency ratings.
 
 **The Core Model calculates:**
 ✔ Daily attrition rates  
 ✔ Total troop numbers  
 ✔ Weapon system effectiveness  
 ✔ Firepower dominance (Artillery, Drones, Airpower, etc.)  
+✔ Logistics and morale degradation  
 ✔ Operational efficiency over time
 
 📌 **Designed by Infinity Fabric LLC**  
@@ -34,12 +35,15 @@ with col1:
     reinforce_russia = st.slider("Monthly Reinforcement %", 0.0, 5.0, 1.0)
     commander_rating_russia = st.selectbox("Commander Rating (Force 1)", ["A++", "A+", "A", "B"], index=0)
     unit_type_russia = st.multiselect(
-    "✔ Select Unit Types for Force 1 (Russia)",
-    ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
-    default=["VDV", "Armoured"]
-)
+        "✔ Select Unit Types for Force 1 (Russia)",
+        ["VDV", "Marines", "Infantry", "Mechanized", "Armoured", "Motorised"],
+        default=["VDV", "Armoured"]
+    )
     medevac_efficiency_russia = st.slider("MedEvac Efficiency (Force 1)", 0.0, 1.0, 0.85)
     ew_effectiveness_russia = st.slider("EW Disruption Factor (Force 1)", 0.0, 1.0, 0.75)
+    logistics_russia = st.slider("Logistical Efficiency (Force 1)", 0.0, 1.0, 0.8)
+    vehicle_resilience_russia = st.slider("Vehicle Survivability Factor (Force 1)", 0.0, 1.0, 0.7)
+    morale_decay_russia = st.slider("Morale Decay Rate (Force 1)", 0.0, 1.0, 0.15)
 
 with col2:
     T_ukraine = st.number_input("Force 2 Troop Count", 100000, 1000000, 400000, step=25000)
@@ -48,14 +52,25 @@ with col2:
     reinforce_ukraine = st.slider("Monthly Reinforcement %", 0.0, 5.0, 0.5)
     commander_rating_ukraine = st.selectbox("Commander Rating (Force 2)", ["A++", "A+", "A", "B"], index=2)
     unit_type_ukraine = st.multiselect(
-    "✔ Select Unit Types for Force 2 (Ukraine)",
-    ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
-    default=["Infantry", "Territorial"]
-)
+        "✔ Select Unit Types for Force 2 (Ukraine)",
+        ["Infantry", "Territorial", "Mechanized", "Armoured", "Motorised"],
+        default=["Infantry", "Territorial"]
+    )
     medevac_efficiency_ukraine = st.slider("MedEvac Efficiency (Force 2)", 0.0, 1.0, 0.50)
     ew_effectiveness_ukraine = st.slider("EW Disruption Factor (Force 2)", 0.0, 1.0, 0.20)
+    logistics_ukraine = st.slider("Logistical Efficiency (Force 2)", 0.0, 1.0, 0.6)
+    vehicle_resilience_ukraine = st.slider("Vehicle Survivability Factor (Force 2)", 0.0, 1.0, 0.5)
+    morale_decay_ukraine = st.slider("Morale Decay Rate (Force 2)", 0.0, 1.0, 0.3)
 
-D_days = st.slider("Conflict Duration (Days)", 30, 1500, 1031)
+st.markdown("---")
+
+st.subheader("🗖 Conflict Duration")
+days = st.number_input("Days", min_value=0, value=31)
+weeks = st.number_input("Weeks", min_value=0, value=0)
+months = st.number_input("Months", min_value=0, value=0)
+
+D_days = days + (weeks * 7) + (months * 30)
+st.write(f"**Total Duration:** {D_days} days")
 
 commander_effect_map = {"A++": 0.30, "A+": 0.20, "A": 0.10, "B": 0.0}
 unit_kd_modifier = {
@@ -73,13 +88,6 @@ def avg_kd(unit_list):
         return 10
     return sum(unit_kd_modifier[u] for u in unit_list) / len(unit_list)
 
-adjusted_cas_russia = daily_cas_russia * (1 - commander_effect_map[commander_rating_russia])
-adjusted_cas_ukraine = daily_cas_ukraine * (1 + (0.10 - commander_effect_map[commander_rating_ukraine]))
-
-firepower_limit = 3000
-adjusted_cas_russia = min(adjusted_cas_russia, firepower_limit)
-adjusted_cas_ukraine = min(adjusted_cas_ukraine, firepower_limit)
-
 def survival_probability_extended(T_initial, daily_casualties, rotation_days, reinforce_pct, duration_days, morale_factor, cmd_bonus):
     exposure_cycles = duration_days / (rotation_days / 30)
     monthly_reinforcement = T_initial * (reinforce_pct / 100)
@@ -89,8 +97,15 @@ def survival_probability_extended(T_initial, daily_casualties, rotation_days, re
     base_survival = survival_daily ** exposure_cycles
     return base_survival * morale_factor * (1 + cmd_bonus)
 
-morale_russia = 1.05
-morale_ukraine = 0.95
+morale_russia = 1.05 * (1 - morale_decay_russia)
+morale_ukraine = 0.95 * (1 - morale_decay_ukraine)
+
+adjusted_cas_russia = daily_cas_russia * (1 - commander_effect_map[commander_rating_russia]) * (1 - logistics_russia)
+adjusted_cas_ukraine = daily_cas_ukraine * (1 + (0.10 - commander_effect_map[commander_rating_ukraine])) * (1 - logistics_ukraine)
+
+firepower_limit = 3000
+adjusted_cas_russia = min(adjusted_cas_russia, firepower_limit)
+adjusted_cas_ukraine = min(adjusted_cas_ukraine, firepower_limit)
 
 surv_russia = survival_probability_extended(T_russia, adjusted_cas_russia, rotation_russia, reinforce_russia, D_days, morale_russia, commander_effect_map[commander_rating_russia])
 surv_ukraine = survival_probability_extended(T_ukraine, adjusted_cas_ukraine, rotation_ukraine, reinforce_ukraine, D_days, morale_ukraine, commander_effect_map[commander_rating_ukraine])
