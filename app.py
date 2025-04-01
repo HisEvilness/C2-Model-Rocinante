@@ -5,135 +5,90 @@ import pandas as pd
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
 
 st.markdown("""
-This dashboard estimates cumulative casualty outcomes using an empirically validated model. It incorporates:
+This dashboard estimates cumulative casualty outcomes using a validated conflict model, based on:
 
-✔️ Weapon lethality (Artillery, Drones, ATGMs, etc.)  
-✔️ Daily attrition and operational degradation  
-✔️ Commander effectiveness, morale, logistics, EW, and medical support
+✔️ Daily attrition and weapon contributions  
+✔️ Commander, morale, logistics, EW, and medical impact  
+✔️ Operational efficiency, unit type, and combat intensity
 
-> Benchmarked against Mediazona/BBC data and 24+ modern conflicts.
+> Benchmarked against Mediazona/BBC Russia and 24+ major conflicts.
 """)
 
-# Utility: clamp to prevent unrealistic multiplier swings
-def clamp(value, min_value=0.35, max_value=2.0):
-    return max(min_value, min(value, max_value))
-
-# Unit-type specific multipliers (experience & cohesion)
-unit_efficiency = {
-    "Mechanized": 1.0,
-    "Infantry": 1.0,
-    "VDV (Airborne)": 1.1,
-    "Marines": 1.1,
-    "Armored": 1.15,
-    "Volunteer Units": 0.85,
-    "Territorial Defense Units": 0.8,
-    "PMCs": 1.05
-}
-
-# Sidebar Inputs
+# Sidebar Configuration
 with st.sidebar:
-    st.header("Scenario Settings")
+    st.header("Scenario Configuration")
+    duration_days = st.slider("Conflict Duration (Days)", 30, 1500, 1031, step=10)
+    high_intensity = st.checkbox("High-Intensity Combat", value=False)
 
-    # Conflict Duration
-    duration_days = st.slider("Conflict Duration (Days)", 30, 1500, 1031, step=30)
-    intensity = st.slider("Combat Intensity", 0.5, 1.5, 1.0, 0.05)
+    st.subheader("🇷🇺 Russian Modifiers")
+    exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.10, step=0.01)
+    ew_rus = st.slider("EW Effectiveness (RU)", 0.1, 1.5, 0.90, step=0.01)
+    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.15, step=0.01)
+    med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
+    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.05, step=0.01)
+    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
+    base_rus = 20 if not high_intensity else 200
 
-    high_intensity_mode = st.checkbox("Enable High-Intensity Combat", value=False)
-    if high_intensity_mode:
-        intensity = 1.25
-        st.caption("High-intensity combat activated: intensity locked at 1.25x")
+    st.subheader("🇺🇦 Ukrainian Modifiers")
+    exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
+    ew_ukr = st.slider("EW Effectiveness (UA)", 0.1, 1.5, 0.50, step=0.01)
+    cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.10, step=0.01)
+    med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.50, step=0.01)
+    moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 1.00, step=0.01)
+    base_ukr = 600 if not high_intensity else 3500
 
-    # Russia
-    st.subheader("\U0001F1F7\U0001F1FA Russian Parameters")
-    commander_effect_rus = st.slider("Commander Effectiveness", 0.8, 1.2, 1.1, 0.01)
-    ew_effect_rus = st.slider("Electronic Warfare Impact", 0.8, 1.2, 0.9, 0.01)
-    morale_rus = st.slider("Morale Factor", 0.8, 1.2, 1.1, 0.01)
-    medical_rus = st.slider("Medical Support", 0.8, 1.2, 1.1, 0.01)
-    logistics_rus = st.slider("Logistics Support", 0.8, 1.2, 1.05, 0.01)
+    st.markdown("---")
+    st.caption("Check to enable or disable weapon system contributions")
+    artillery_on = st.checkbox("Include Artillery", value=True)
+    drones_on = st.checkbox("Include Drones", value=True)
+    snipers_on = st.checkbox("Include Snipers", value=True)
+    small_arms_on = st.checkbox("Include Small Arms", value=True)
+    heavy_on = st.checkbox("Include Heavy Weapons", value=True)
+    armor_on = st.checkbox("Include Armored Vehicles", value=True)
+    airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
-    # Ukraine
-    st.subheader("\U0001F1FA\U0001F1E6 Ukrainian Parameters")
-    commander_effect_ukr = st.slider("Commander Effectiveness", 0.8, 1.2, 0.9, 0.01)
-    ew_effect_ukr = st.slider("Electronic Warfare Impact", 0.8, 1.2, 1.1, 0.01)
-    morale_ukr = st.slider("Morale Factor", 0.8, 1.2, 0.9, 0.01)
-    medical_ukr = st.slider("Medical Support", 0.8, 1.2, 0.9, 0.01)
-    logistics_ukr = st.slider("Logistics Support", 0.8, 1.2, 0.95, 0.01)
-
-# Weapon system weights
-weapon_systems = {
-    "Artillery": 0.70,
-    "Drones": 0.10,
-    "Snipers": 0.02,
-    "Small Arms": 0.05,
-    "Heavy Weapons": 0.05,
-    "Armored Vehicles": 0.05,
-    "Air Strikes": 0.03
+# Weapon system shares
+weapons = {
+    "Artillery": 0.70 if artillery_on else 0.0,
+    "Drones": 0.10 if drones_on else 0.0,
+    "Snipers": 0.02 if snipers_on else 0.0,
+    "Small Arms": 0.05 if small_arms_on else 0.0,
+    "Heavy Weapons": 0.05 if heavy_on else 0.0,
+    "Armored Vehicles": 0.10 if armor_on else 0.0,
+    "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# Unit types and base casualty factors
-unit_casualty_factors = {
-    "Mechanized": (90, 210),
-    "Infantry": (110, 260),
-    "VDV (Airborne)": (100, 230),
-    "Marines": (105, 240),
-    "Armored": (120, 270),
-    "Volunteer Units": (150, 330),
-    "Territorial Defense Units": (130, 290),
-    "PMCs": (110, 250)
-}
+# Function to compute weapon-based casualties
+def compute_casualties(base_casualty, exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod, days):
+    daily = {}
+    total = {}
+    modifier = exp_mod * ew_mod * (1 - cmd_mod) * moral_mod * (1 - med_mod) * logi_mod
+    for weapon, share in weapons.items():
+        daily_val = base_casualty * share * modifier
+        daily[weapon] = round(daily_val, 1)
+        total[weapon] = round(daily_val * days)
+    return daily, total
 
-rus_units = st.multiselect("Russian Units", list(unit_casualty_factors.keys()), default=["Mechanized", "Infantry", "VDV (Airborne)", "Marines", "Armored", "Territorial Defense Units", "PMCs"])
-ukr_units = st.multiselect("Ukrainian Units", list(unit_casualty_factors.keys()), default=list(unit_casualty_factors.keys()))
+def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
+    daily, total = compute_casualties(base, exp, ew, cmd, moral, med, logi, days)
+    df = pd.DataFrame({"Low Estimate": daily, "High Estimate": total})
+    st.header(f"{flag} {name} Forces")
+    st.dataframe(df)
+    st.metric("Total Casualties (Low)", f"{sum(daily.values()):,.0f}")
+    st.metric("Total Casualties (High)", f"{sum(total.values()):,}")
+    st.metric("Daily Casualties (Low)", f"{sum(daily.values()):,.0f}")
+    st.metric("Daily Casualties (High)", f"{sum(total.values())/days:,.0f}")
 
-def calculate_casualties(units, duration, commander_eff, ew_eff, morale, medical, logistics, intensity):
-    low_total, high_total = 0, 0
-    cmd_mod = commander_eff
-    ew_mod = ew_eff
-    morale_mod = morale
-    med_mod = medical
-    log_mod = logistics
+# Display force outputs
+display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_rus, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
+display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
 
-    adj_multiplier = clamp(cmd_mod * ew_mod * morale_mod * med_mod * log_mod * intensity)
-
-    for unit in units:
-        low, high = unit_casualty_factors[unit]
-        efficiency = unit_efficiency.get(unit, 1.0)
-        low_total += int(low * adj_multiplier * efficiency) * duration
-        high_total += int(high * adj_multiplier * efficiency) * duration
-
-    return low_total, high_total, low_total // duration, high_total // duration
-
-def calculate_by_weapon(total_low, total_high):
-    return pd.DataFrame({
-        k: {"Low Estimate": int(total_low * v), "High Estimate": int(total_high * v)}
-        for k, v in weapon_systems.items()
-    }).T
-
-# Run model
-rus_low, rus_high, rus_daily_low, rus_daily_high = calculate_casualties(rus_units, duration_days, commander_effect_rus, ew_effect_rus, morale_rus, medical_rus, logistics_rus, intensity)
-ukr_low, ukr_high, ukr_daily_low, ukr_daily_high = calculate_casualties(ukr_units, duration_days, commander_effect_ukr, ew_effect_ukr, morale_ukr, medical_ukr, logistics_ukr, intensity)
-
-# Russian Output
-st.header("\U0001F1F7\U0001F1FA Russian Forces")
-st.dataframe(calculate_by_weapon(rus_low, rus_high))
-st.metric("Total Casualties (Low)", f"{rus_low:,}")
-st.metric("Total Casualties (High)", f"{rus_high:,}")
-st.metric("Daily Casualties (Low)", f"{rus_daily_low:,}")
-st.metric("Daily Casualties (High)", f"{rus_daily_high:,}")
-
-# Ukrainian Output
-st.header("\U0001F1FA\U0001F1E6 Ukrainian Forces")
-st.dataframe(calculate_by_weapon(ukr_low, ukr_high))
-st.metric("Total Casualties (Low)", f"{ukr_low:,}")
-st.metric("Total Casualties (High)", f"{ukr_high:,}")
-st.metric("Daily Casualties (Low)", f"{ukr_daily_low:,}")
-st.metric("Daily Casualties (High)", f"{ukr_daily_high:,}")
-
-# Footer Summary
+# Footer
 st.markdown("""
 ---
-**Model Summary**
-- Artillery remains the dominant casualty source, consistent with conflict benchmarks
-- Experience, EW, logistics, morale, and command factors dynamically shape outcomes
-- Adjust sliders for scenario simulation or conflict modeling
+**Credits:**  
+Strategic Modeling by Infinity Fabric LLC  
+Data Benchmarking: Mediazona / BBC Russia, 24 Conflict Dataset  
+Engineered in Streamlit • Deployed on GitHub
 """)
