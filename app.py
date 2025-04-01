@@ -87,11 +87,11 @@ ukr_units = st.multiselect("Ukrainian Units", list(unit_casualty_factors.keys())
 
 def calculate_casualties(units, duration, commander_eff, ew_eff, morale, medical, logistics, intensity):
     low_total, high_total = 0, 0
-    cmd_mod = 2 - commander_eff
-    ew_mod = 2 - ew_eff
-    morale_mod = 2 - morale
-    med_mod = 2 - medical
-    log_mod = 2 - logistics
+    cmd_mod = commander_eff
+    ew_mod = ew_eff
+    morale_mod = morale
+    med_mod = medical
+    log_mod = logistics
 
     adj_multiplier = clamp(cmd_mod * ew_mod * morale_mod * med_mod * log_mod * intensity)
 
