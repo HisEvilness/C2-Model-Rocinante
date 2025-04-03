@@ -25,7 +25,7 @@ with st.sidebar:
 
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.10, step=0.01)
-    ew_rus = st.slider("EW Effectiveness (RU)", 0.1, 1.5, 0.90, step=0.01)
+    ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
     cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.15, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.05, step=0.01)
@@ -33,7 +33,7 @@ with st.sidebar:
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
-    ew_ukr = st.slider("EW Effectiveness (UA)", 0.1, 1.5, 0.50, step=0.01)
+    ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.50, step=0.01)
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.10, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.50, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
@@ -69,33 +69,33 @@ weapons = {
     "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# Morale scaling function (non-linear boost)
+# Morale and Logistics Scaling
 def morale_scaling(m):
-    return 1 + 0.5 * math.tanh(m - 1)
+    return 1 + 0.8 * math.tanh(2 * (m - 1))
 
 def logistic_scaling(l):
-    return 0.75 + 0.25 * l
+    return 0.5 + 0.5 * l
 
-# Refined casualty multiplier formula
-def calculate_modifier(exp, ew, cmd, moral, med, logi):
-    mod = exp * ew * morale_scaling(moral) * logistic_scaling(logi)
-    mod *= (1 - cmd)
-    return mod
+# Calculate casualty multiplier with weapon-specific opponent impact
+def calculate_modifier(exp, moral, logi):
+    return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-# Apply weapon share model per system
-def calculate_casualties(base_rate, modifier, duration):
+# Core casualty model using external effects (EW, Med, Cmd) after base calc
+def calculate_casualties(base_rate, modifier, duration, ew_enemy, med, cmd):
     results = {}
     total = {}
     for system, share in weapons.items():
-        daily = base_rate * share * modifier
-        cumulative = daily * duration
-        results[system] = round(daily, 2)
+        system_eff = share * ew_enemy
+        daily = base_rate * system_eff * modifier
+        adjusted = daily * (1 + (1 - med)) * (1 - cmd)
+        cumulative = adjusted * duration
+        results[system] = round(adjusted, 2)
         total[system] = round(cumulative)
     return results, total
 
-def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, duration):
-    modifier = calculate_modifier(exp, ew, cmd, moral, med, logi)
-    daily_casualties, cumulative_casualties = calculate_casualties(base, modifier, duration)
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
+    modifier = calculate_modifier(exp, moral, logi)
+    daily_casualties, cumulative_casualties = calculate_casualties(base, modifier, duration, ew_enemy, med, cmd)
     df = pd.DataFrame({"Daily Estimate": daily_casualties, "Cumulative": cumulative_casualties})
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
@@ -104,8 +104,8 @@ def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, duration):
 
 # Show forces
 st.markdown("---")
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_rus, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
+display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
+display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
 
 # Footer
 st.markdown("""
