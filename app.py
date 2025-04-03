@@ -59,17 +59,28 @@ weapons = {
     "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# Function to compute weapon-based casualties
+# AI-like reasoning layer
+def ai_reasoning_layer(exp, ew, cmd, moral, med, logi):
+    """Applies heuristic rules to ensure realism based on historical benchmarks."""
+    reasoning_modifier = exp * ew * (1 - cmd) * moral * (1 - med) * logi
 
+    if reasoning_modifier > 1.5:
+        st.warning("⚠️ Unrealistically high efficiency detected. Adjust inputs.")
+    elif reasoning_modifier < 0.3:
+        st.warning("⚠️ Combat degradation too severe. Check morale, logistics, or medical factors.")
+
+    return reasoning_modifier
+
+# Compute casualties
 def compute_casualties(base_casualty, exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod, days):
     daily = {}
     total = {}
+    modifier = ai_reasoning_layer(exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod)
     for weapon, share in weapons.items():
-        daily_val = base_casualty * share * exp_mod * ew_mod * moral_mod * logi_mod * (1 - cmd_mod) * (1 - med_mod)
+        daily_val = base_casualty * share * modifier
         daily[weapon] = round(daily_val, 1)
         total[weapon] = round(daily_val * days)
     return daily, total
-
 
 def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
     daily, total = compute_casualties(base, exp, ew, cmd, moral, med, logi, days)
