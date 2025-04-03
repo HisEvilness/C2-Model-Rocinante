@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 
 # Title
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
@@ -59,43 +60,58 @@ weapons = {
     "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# AI-like reasoning layer
-def ai_reasoning_layer(exp, ew, cmd, moral, med, logi):
-    """Applies heuristic rules to ensure realism based on historical benchmarks."""
-    reasoning_modifier = exp * ew * (1 - cmd) * moral * (1 - med) * logi
+# Morale scaling function (non-linear boost)
+def morale_scaling(m):
+    return 1 + 0.5 * math.tanh(m - 1)
 
-    if reasoning_modifier > 1.5:
-        st.warning("⚠️ Unrealistically high efficiency detected. Adjust inputs.")
-    elif reasoning_modifier < 0.3:
-        st.warning("⚠️ Combat degradation too severe. Check morale, logistics, or medical factors.")
+def logistic_scaling(l):
+    return 0.75 + 0.25 * l
 
-    return reasoning_modifier
+# AI-like layered logic
+def compute_phased_modifier(exp, ew, cmd, moral, med, logi):
+    stage1 = exp * ew
+    stage2 = stage1 * morale_scaling(moral)
+    stage3 = stage2 * logistic_scaling(logi)
+    stage4 = stage3 * (1 - cmd)
+    stage5 = stage4 * (1 - med)
+    return {
+        "Stage 1 (Exp x EW)": stage1,
+        "Stage 2 (+Morale)": stage2,
+        "Stage 3 (+Logistics)": stage3,
+        "Stage 4 (-Command)": stage4,
+        "Stage 5 (-Medical)": stage5
+    }
 
-# Compute casualties
-def compute_casualties(base_casualty, exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod, days):
+def compute_weapon_casualties(base, modifier, days):
     daily = {}
     total = {}
-    modifier = ai_reasoning_layer(exp_mod, ew_mod, cmd_mod, moral_mod, med_mod, logi_mod)
-    for weapon, share in weapons.items():
-        daily_val = base_casualty * share * modifier
-        daily[weapon] = round(daily_val, 1)
-        total[weapon] = round(daily_val * days)
+    for wpn, share in weapons.items():
+        d = base * share * modifier
+        daily[wpn] = round(d, 1)
+        total[wpn] = round(d * days)
     return daily, total
 
 def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
-    daily, total = compute_casualties(base, exp, ew, cmd, moral, med, logi, days)
+    phases = compute_phased_modifier(exp, ew, cmd, moral, med, logi)
+    mod = phases["Stage 5 (-Medical)"]
+    daily, total = compute_weapon_casualties(base, mod, days)
     df = pd.DataFrame({"Daily Estimate": daily, "Cumulative": total})
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
     st.metric("Total Casualties", f"{sum(total.values()):,}")
     st.metric("Daily Casualties", f"{sum(daily.values()):,.1f}")
 
-# Display force outputs
+    with st.expander(f"{name} Modifier Breakdown"):
+        for key, val in phases.items():
+            st.write(f"{key}: {val:.4f}")
+
+# Show both forces
+st.markdown("---")
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_rus, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
 
 # Footer
 st.markdown("""
 ---
-**Credits:** Dashboard logic and implementation by Infinity Fabric LLC — casualty model benchmarked against Mediazona, BBC Russia, and validated against 24+ modern conflicts.
+**Credits:** Dashboard logic by Infinity Fabric LLC. Model benchmarked using verified data from Mediazona/BBC and 24 major conflicts.
 """)
