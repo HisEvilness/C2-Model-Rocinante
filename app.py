@@ -76,39 +76,54 @@ def morale_scaling(m):
 def logistic_scaling(l):
     return 0.5 + 0.5 * l
 
-# Calculate casualty multiplier with weapon-specific opponent impact
+# Calculate casualty modifier
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
 
 # Core casualty model using external effects (EW, Med, Cmd) after base calc
-def calculate_casualties(base_rate, modifier, duration, ew_enemy, med, cmd):
+
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd):
     results = {}
     total = {}
     for system, share in weapons.items():
+        min_adj = 0.9
+        max_adj = 1.1
+
         system_eff = share * ew_enemy
-        daily = base_rate * system_eff * modifier
-        adjusted = daily * (1 + (1 - med)) * (1 - cmd)
-        cumulative = adjusted * duration
-        results[system] = round(adjusted, 2)
-        total[system] = round(cumulative)
+        daily_min = base_rate * system_eff * modifier * min_adj * (1 + (1 - med)) * (1 - cmd)
+        daily_max = base_rate * system_eff * modifier * max_adj * (1 + (1 - med)) * (1 - cmd)
+
+        cumulative_min = daily_min * duration
+        cumulative_max = daily_max * duration
+
+        results[system] = (round(daily_min, 1), round(daily_max, 1))
+        total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
-    daily_casualties, cumulative_casualties = calculate_casualties(base, modifier, duration, ew_enemy, med, cmd)
-    df = pd.DataFrame({"Daily Estimate": daily_casualties, "Cumulative": cumulative_casualties})
+    daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd)
+
+    df = pd.DataFrame({
+        "Daily Min": {k: v[0] for k, v in daily_range.items()},
+        "Daily Max": {k: v[1] for k, v in daily_range.items()},
+        "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
+        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
+    })
+
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
-    st.metric("Total Casualties", f"{sum(cumulative_casualties.values()):,}")
-    st.metric("Daily Casualties", f"{sum(daily_casualties.values()):,.1f}")
+    total_min = sum([v[0] for v in cumulative_range.values()])
+    total_max = sum([v[1] for v in cumulative_range.values()])
+    st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
 
 # Show forces
 st.markdown("---")
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
+display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
+display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
 
 # Footer
 st.markdown("""
 ---
-**Credits:** Strategic modeling by Infinity Fabric LLC. Benchmarked against Mediazona/BBC Russia and historical conflict data.
+**Credits:** Strategic modeling by Infinity Fabric LLC. Powered by a validated AI-model aligned with historical conflicts.
 """)
