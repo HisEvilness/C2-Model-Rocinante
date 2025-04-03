@@ -87,13 +87,17 @@ def morale_scaling(m):
 def logistic_scaling(l):
     return 0.5 + 0.5 * l
 
-def medical_scaling(med):
-    return 1 + (1 - med) ** 1.35
+def medical_scaling(med, morale):
+    morale_boost = 1 + 0.1 * (morale - 1)
+    return (1 + (1 - med) ** 1.3) * morale_boost
+
+def commander_scaling(cmd):
+    return 1 - (0.65 * cmd ** 1.3)
 
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd):
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
     results = {}
     total = {}
     for system, share in weapons.items():
@@ -102,8 +106,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         system_eff = share * ew_enemy
 
-        daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med) * (1 - cmd)
-        daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med) * (1 - cmd)
+        daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med, moral) * commander_scaling(cmd)
+        daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med, moral) * commander_scaling(cmd)
 
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
@@ -127,7 +131,7 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
-    daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd)
+    daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
 
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
