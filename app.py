@@ -100,7 +100,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         min_adj = 0.95
         max_adj = 1.10
 
-        # Apply EW degradation only to opponent
         system_eff = share * ew_enemy
 
         daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med) * (1 - cmd)
@@ -173,5 +172,5 @@ st.markdown("""
 # Footer
 st.markdown("""
 ---
-**Credits:** Strategic modeling by Infinity Fabric LLC. Benchmarked on 25+ conflicts and validated with AI-driven analytical forecasting.
+**Credits:** Strategic modeling by Infinity Fabric LLC.
 """)
