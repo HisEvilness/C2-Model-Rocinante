@@ -79,12 +79,16 @@ weapons = {
     "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# Morale and Logistics Scaling
+# Scaling Functions
+
 def morale_scaling(m):
     return 1 + 0.8 * math.tanh(2 * (m - 1))
 
 def logistic_scaling(l):
     return 0.5 + 0.5 * l
+
+def medical_scaling(med):
+    return 1 + (1 - med) ** 1.25
 
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
@@ -96,9 +100,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         min_adj = 0.95
         max_adj = 1.10
 
+        # Apply EW degradation only to opponent
         system_eff = share * ew_enemy
-        daily_min = base_rate * system_eff * modifier * min_adj * (1 + (1 - med)) * (1 - cmd)
-        daily_max = base_rate * system_eff * modifier * max_adj * (1 + (1 - med)) * (1 - cmd)
+
+        daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med) * (1 - cmd)
+        daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med) * (1 - cmd)
 
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
@@ -106,6 +112,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
+
+# Output Functions
 
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
