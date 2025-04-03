@@ -28,7 +28,7 @@ Casualty and degradation calculations are based on:
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
-    duration_days = st.slider("Conflict Duration (Days)", 30, 1500, 1031, step=10)
+    duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
 
     st.subheader("Combat Intensity Phase")
     intensity_level = st.slider("Combat Intensity (1=Low, 3=High)", 1, 3, 2)
