@@ -43,7 +43,7 @@ with st.sidebar:
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
-    ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.50, step=0.01)
+    ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.10, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.50, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
@@ -63,7 +63,7 @@ with st.sidebar:
 # Intensity-based casualty baseline
 intensity_map = {
     1: (20, 600),
-    2: (100, 1500),
+    2: (120, 1500),
     3: (200, 3500)
 }
 base_rus, base_ukr = intensity_map[intensity_level]
@@ -93,8 +93,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     results = {}
     total = {}
     for system, share in weapons.items():
-        min_adj = 0.9
-        max_adj = 1.1
+        min_adj = 0.95
+        max_adj = 1.10
 
         system_eff = share * ew_enemy
         daily_min = base_rate * system_eff * modifier * min_adj * (1 + (1 - med)) * (1 - cmd)
