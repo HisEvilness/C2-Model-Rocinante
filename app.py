@@ -130,12 +130,6 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     })
 
     st.header(f"{flag} {name} Forces")
-    st.markdown(f"""
-    **Interpretation**: The estimated range is based on:
-    - Modifier impact from morale, logistics, and command
-    - EW degrading the enemy's effectiveness
-    - Duration of {duration} days and intensity level {intensity_level}
-    """)
     st.dataframe(df)
     total_min = sum([v[0] for v in cumulative_range.values()])
     total_max = sum([v[1] for v in cumulative_range.values()])
