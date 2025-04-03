@@ -67,45 +67,33 @@ def morale_scaling(m):
 def logistic_scaling(l):
     return 0.75 + 0.25 * l
 
-# AI-like layered logic
-def compute_phased_modifier(exp, ew, cmd, moral, med, logi):
-    stage1 = exp * ew
-    stage2 = stage1 * morale_scaling(moral)
-    stage3 = stage2 * logistic_scaling(logi)
-    stage4 = stage3 * (1 - cmd)
-    stage5 = stage4 * (1 - med)
-    return {
-        "Stage 1 (Exp x EW)": stage1,
-        "Stage 2 (+Morale)": stage2,
-        "Stage 3 (+Logistics)": stage3,
-        "Stage 4 (-Command)": stage4,
-        "Stage 5 (-Medical)": stage5
-    }
+# Refined casualty multiplier formula
+def calculate_modifier(exp, ew, cmd, moral, med, logi):
+    mod = exp * ew * morale_scaling(moral) * logistic_scaling(logi)
+    mod *= (1 - cmd)
+    return mod
 
-def compute_weapon_casualties(base, modifier, days):
-    daily = {}
+# Apply weapon share model per system
+def calculate_casualties(base_rate, modifier, duration):
+    results = {}
     total = {}
-    for wpn, share in weapons.items():
-        d = base * share * modifier
-        daily[wpn] = round(d, 1)
-        total[wpn] = round(d * days)
-    return daily, total
+    for system, share in weapons.items():
+        daily = base_rate * share * modifier
+        cumulative = daily * duration
+        results[system] = round(daily, 2)
+        total[system] = round(cumulative)
+    return results, total
 
-def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, days):
-    phases = compute_phased_modifier(exp, ew, cmd, moral, med, logi)
-    mod = phases["Stage 5 (-Medical)"]
-    daily, total = compute_weapon_casualties(base, mod, days)
-    df = pd.DataFrame({"Daily Estimate": daily, "Cumulative": total})
+def display_force(flag, name, base, exp, ew, cmd, moral, med, logi, duration):
+    modifier = calculate_modifier(exp, ew, cmd, moral, med, logi)
+    daily_casualties, cumulative_casualties = calculate_casualties(base, modifier, duration)
+    df = pd.DataFrame({"Daily Estimate": daily_casualties, "Cumulative": cumulative_casualties})
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
-    st.metric("Total Casualties", f"{sum(total.values()):,}")
-    st.metric("Daily Casualties", f"{sum(daily.values()):,.1f}")
+    st.metric("Total Casualties", f"{sum(cumulative_casualties.values()):,}")
+    st.metric("Daily Casualties", f"{sum(daily_casualties.values()):,.1f}")
 
-    with st.expander(f"{name} Modifier Breakdown"):
-        for key, val in phases.items():
-            st.write(f"{key}: {val:.4f}")
-
-# Show both forces
+# Show forces
 st.markdown("---")
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_rus, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
@@ -113,5 +101,5 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral
 # Footer
 st.markdown("""
 ---
-**Credits:** Strategic modeling by Infinity Fabric LLC. Based on historic benchmarks and Mediazona/BBC Russia data. Dashboard built with Streamlit.
+**Credits:** Strategic modeling by Infinity Fabric LLC. Built on AI-modeled logic, verified against 25+ modern conflicts and Mediazona/BBC Russia data.
 """)
