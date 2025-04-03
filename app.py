@@ -23,24 +23,6 @@ Casualty and degradation calculations are based on:
 - 🇺🇦 suffers long-term degradation due to rotating conscripts and veteran losses
 
 > This simulation aligns with validated AI predictions and 24+ historical conflicts for casualty realism.
-
-### Historical Conflict Benchmarks:
-| Conflict | Duration (days) | Casualties | Source Alignment |
-|---------|----------------|------------|------------------|
-| WWI (Verdun) | ~300 | ~700,000 | Matched artillery-driven attrition |
-| WWII (Eastern Front) | ~1410 | ~5M–6M+ | Aligns with prolonged high-intensity warfare |
-| Vietnam War | ~5475 | ~1.1M+ | Phased casualties, morale decline over time |
-| Iraq War | ~2920 | ~400,000–650,000 | Attrition via IEDs, airstrikes, low morale |
-| Russo-Ukrainian War | 1031+ | ~500,000–800,000+ | Mirrors drone/artillery dynamic and degradation |
-
-### AI Model vs Real World (Validation Table)
-| Conflict | AI Model Estimate | Recorded Casualties | Deviation |
-|----------|-------------------|----------------------|-----------|
-| Verdun (WWI) | ~690,000–720,000 | ~700,000 | ±1.4% |
-| Eastern Front (WWII) | ~5.2M–6.4M | ~6M | ±6.7% |
-| Vietnam War | ~1.05M–1.2M | ~1.1M | ±4.5% |
-| Iraq War | ~420K–640K | ~500K–650K | ±8% |
-| Russo-Ukrainian | ~540K–790K | ~500K–800K | ±5.2% |
 """)
 
 # Sidebar Configuration
@@ -164,6 +146,27 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 st.markdown("---")
 display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
 display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
+
+# Conflict Validation Table
+st.markdown("""
+### Historical Conflict Benchmarks:
+| Conflict | Duration (days) | Casualties | Source Alignment |
+|---------|----------------|------------|------------------|
+| WWI (Verdun) | ~300 | ~700,000 | Matched artillery-driven attrition |
+| WWII (Eastern Front) | ~1410 | ~5M–6M+ | Aligns with prolonged high-intensity warfare |
+| Vietnam War | ~5475 | ~1.1M+ | Phased casualties, morale decline over time |
+| Iraq War | ~2920 | ~400,000–650,000 | Attrition via IEDs, airstrikes, low morale |
+| Russo-Ukrainian War | 1031+ | ~500,000–800,000+ | Mirrors drone/artillery dynamic and degradation |
+
+### AI Model vs Real World (Validation Table)
+| Conflict | AI Model Estimate | Recorded Casualties | Deviation |
+|----------|-------------------|----------------------|-----------|
+| Verdun (WWI) | ~690,000–720,000 | ~700,000 | ±1.4% |
+| Eastern Front (WWII) | ~5.2M–6.4M | ~6M | ±6.7% |
+| Vietnam War | ~1.05M–1.2M | ~1.1M | ±4.5% |
+| Iraq War | ~420K–640K | ~500K–650K | ±8% |
+| Russo-Ukrainian | ~540K–790K | ~500K–800K | ±5.2% |
+""")
 
 # Footer
 st.markdown("""
