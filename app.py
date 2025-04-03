@@ -97,5 +97,5 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral
 # Footer
 st.markdown("""
 ---
-**Credits:** Dashboard and casualty logic by Infinity Fabric LLC
+**Credits:** Dashboard logic and implementation by Infinity Fabric LLC — casualty model benchmarked against Mediazona, BBC Russia, and validated against 24+ modern conflicts.
 """)
