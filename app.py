@@ -19,7 +19,9 @@ This dashboard estimates cumulative casualty outcomes using a validated conflict
 with st.sidebar:
     st.header("Scenario Configuration")
     duration_days = st.slider("Conflict Duration (Days)", 30, 1500, 1031, step=10)
-    high_intensity = st.checkbox("High-Intensity Combat", value=False)
+
+    st.subheader("Combat Intensity Phase")
+    intensity_level = st.slider("Combat Intensity (1=Low, 3=High)", 1, 3, 2)
 
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.10, step=0.01)
@@ -28,7 +30,6 @@ with st.sidebar:
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.05, step=0.01)
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
-    base_rus = 20 if not high_intensity else 200
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
@@ -37,8 +38,8 @@ with st.sidebar:
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.50, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 1.00, step=0.01)
-    base_ukr = 600 if not high_intensity else 3500
 
+    st.subheader("Environment & System Controls")
     st.markdown("---")
     st.caption("Enable or disable weapon system contributions")
     artillery_on = st.checkbox("Include Artillery", value=True)
@@ -48,6 +49,14 @@ with st.sidebar:
     heavy_on = st.checkbox("Include Heavy Weapons", value=True)
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
+
+# Intensity-based casualty baseline
+intensity_map = {
+    1: (20, 600),
+    2: (100, 1500),
+    3: (200, 3500)
+}
+base_rus, base_ukr = intensity_map[intensity_level]
 
 # Weapon system shares
 weapons = {
@@ -101,5 +110,5 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral
 # Footer
 st.markdown("""
 ---
-**Credits:** Strategic modeling by Infinity Fabric LLC. Built on AI-modeled logic, verified against 25+ modern conflicts and Mediazona/BBC Russia data.
+**Credits:** Strategic modeling by Infinity Fabric LLC. Benchmarked against Mediazona/BBC Russia and historical conflict data.
 """)
