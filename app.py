@@ -113,5 +113,5 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_ukr, cmd_ukr, moral
 # Footer
 st.markdown("""
 ---
-**Credits:** Dashboard logic by Infinity Fabric LLC. Model benchmarked using verified data from Mediazona/BBC and 24 major conflicts.
+**Credits:** Strategic modeling by Infinity Fabric LLC. Based on historic benchmarks and Mediazona/BBC Russia data. Dashboard built with Streamlit.
 """)
