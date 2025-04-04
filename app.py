@@ -61,6 +61,7 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
+
 # Intensity-based casualty baseline
 intensity_map = {
     1: (20, 600),
@@ -115,6 +116,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
+
 
 # Output Functions
 def plot_casualty_chart(title, daily_range, cumulative_range):
