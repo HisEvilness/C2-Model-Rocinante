@@ -129,17 +129,6 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     }).set_index("Weapon System")
     st.bar_chart(chart_data[["Cumulative Min", "Cumulative Max"]])
 
-    # Add time series projection like a stock chart
-    time_days = list(range(0, duration_days + 1, 30))
-    min_series = [round(sum([v[0] for v in daily_range.values()]) * day) for day in time_days]
-    max_series = [round(sum([v[1] for v in daily_range.values()]) * day) for day in time_days]
-    time_df = pd.DataFrame({
-        "Day": time_days,
-        "Cumulative Min": min_series,
-        "Cumulative Max": max_series
-    }).set_index("Day")
-    st.line_chart(time_df)
-
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
