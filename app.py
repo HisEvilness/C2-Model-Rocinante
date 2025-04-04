@@ -47,7 +47,7 @@ with st.sidebar:
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
-    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 1.00, step=0.01)
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)  # Degraded baseline
 
     st.subheader("Environment & System Controls")
     st.markdown("---")
