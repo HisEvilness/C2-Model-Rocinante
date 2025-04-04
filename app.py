@@ -94,6 +94,9 @@ def commander_scaling(cmd):
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
 
+def decay_curve_factor(moral, logi, cmd):
+    return 0.85 + (1 - morale_scaling(moral)) * 0.15 + (1 - logistic_scaling(logi)) * 0.1 + (1 - commander_scaling(cmd)) * 0.1
+
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
     results = {}
     total = {}
@@ -109,7 +112,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
 
-def plot_casualty_chart(title, daily_range, cumulative_range):
+def plot_casualty_chart(title, daily_range, cumulative_range, decay):
     st.subheader(f"{title} Casualty Distribution")
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
@@ -126,11 +129,9 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(bar_chart, use_container_width=True)
 
-    line_data = pd.DataFrame({
-        "Days": list(range(0, duration_days + 1, 7))
-    })
-    line_data["Min"] = [sum([daily_range[ws][0] for ws in daily_range]) * math.log1p(i) for i in line_data["Days"]]
-    line_data["Max"] = [sum([daily_range[ws][1] for ws in daily_range]) * math.log1p(i) for i in line_data["Days"]]
+    line_data = pd.DataFrame({"Days": list(range(0, duration_days + 1, 7))})
+    line_data["Min"] = [sum([daily_range[ws][0] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
+    line_data["Max"] = [sum([daily_range[ws][1] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
 
     line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
         x=alt.X("Days:Q"),
@@ -146,6 +147,7 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
+    decay = decay_curve_factor(moral, logi, cmd)
     daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
@@ -158,7 +160,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     total_min = sum([v[0] for v in cumulative_range.values()])
     total_max = sum([v[1] for v in cumulative_range.values()])
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
-    plot_casualty_chart(f"{name}", daily_range, cumulative_range)
+    plot_casualty_chart(f"{name}", daily_range, cumulative_range, decay)
 
 st.markdown("---")
 display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
