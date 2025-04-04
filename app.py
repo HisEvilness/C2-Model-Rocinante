@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import math
+import altair as alt
 
 # Title
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
@@ -47,7 +48,7 @@ with st.sidebar:
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
-    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)  # Degraded baseline
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)
 
     st.subheader("Environment & System Controls")
     st.markdown("---")
@@ -80,7 +81,6 @@ weapons = {
 }
 
 # Scaling Functions
-
 def morale_scaling(m):
     return 1 + 0.8 * math.tanh(2 * (m - 1))
 
@@ -117,17 +117,28 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     return results, total
 
 # Output Functions
-
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
+
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
-        "Daily Min": [v[0] for v in daily_range.values()],
-        "Daily Max": [v[1] for v in daily_range.values()],
         "Cumulative Min": [v[0] for v in cumulative_range.values()],
         "Cumulative Max": [v[1] for v in cumulative_range.values()]
-    }).set_index("Weapon System")
-    st.bar_chart(chart_data[["Cumulative Min", "Cumulative Max"]])
+    })
+
+    chart_data = chart_data.melt(id_vars=["Weapon System"], var_name="Type", value_name="Casualties")
+
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x=alt.X('Weapon System:N', title='System'),
+        y=alt.Y('Casualties:Q', title='Estimated Casualties'),
+        color='Type:N',
+        tooltip=['Weapon System', 'Type', 'Casualties']
+    ).properties(
+        width=600,
+        height=400
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
