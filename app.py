@@ -61,8 +61,6 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
-
-# Intensity-based casualty baseline
 intensity_map = {
     1: (20, 600),
     2: (120, 1500),
@@ -70,7 +68,6 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Weapon system shares
 weapons = {
     "Artillery": 0.70 if artillery_on else 0.0,
     "Drones": 0.10 if drones_on else 0.0,
@@ -81,7 +78,6 @@ weapons = {
     "Air Strikes": 0.05 if airstrikes_on else 0.0
 }
 
-# Scaling Functions
 def morale_scaling(m):
     return 1 + 0.8 * math.tanh(2 * (m - 1))
 
@@ -104,50 +100,37 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     for system, share in weapons.items():
         min_adj = 0.95
         max_adj = 1.10
-
         system_eff = share * ew_enemy
-
         daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med, moral) * commander_scaling(cmd)
         daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med, moral) * commander_scaling(cmd)
-
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
-
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
 
-
-# Output Functions
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
-
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
         "Cumulative Min": [v[0] for v in cumulative_range.values()],
         "Cumulative Max": [v[1] for v in cumulative_range.values()]
-    })
+    }).melt(id_vars=["Weapon System"], var_name="Type", value_name="Casualties")
 
-    chart_data = chart_data.melt(id_vars=["Weapon System"], var_name="Type", value_name="Casualties")
-
-    chart = alt.Chart(chart_data).mark_bar().encode(
+    bar_chart = alt.Chart(chart_data).mark_bar().encode(
         x=alt.X('Weapon System:N', title='System'),
         y=alt.Y('Casualties:Q', title='Estimated Casualties'),
         color='Type:N',
         tooltip=['Weapon System', 'Type', 'Casualties']
-    ).properties(
-        width=600,
-        height=400
-    )
+    ).properties(width=600, height=400)
 
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(bar_chart, use_container_width=True)
 
-    # Line graph showing degradation over time (curved trend)
     line_data = pd.DataFrame({
-        "Days": list(range(0, duration_days + 1, 7)),
-        "Min": [sum([daily_range[ws][0] for ws in daily_range]) * i for i in range(0, duration_days + 1, 7)],
-        "Max": [sum([daily_range[ws][1] for ws in daily_range]) * i for i in range(0, duration_days + 1, 7)]
+        "Days": list(range(0, duration_days + 1, 7))
     })
+    line_data["Min"] = [sum([daily_range[ws][0] for ws in daily_range]) * math.log1p(i) for i in line_data["Days"]]
+    line_data["Max"] = [sum([daily_range[ws][1] for ws in daily_range]) * math.log1p(i) for i in line_data["Days"]]
 
     line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
         x=alt.X("Days:Q"),
@@ -164,14 +147,12 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
-
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
         "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
     })
-
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
     total_min = sum([v[0] for v in cumulative_range.values()])
@@ -179,12 +160,10 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
     plot_casualty_chart(f"{name}", daily_range, cumulative_range)
 
-# Show forces
 st.markdown("---")
 display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
 display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
 
-# Conflict Validation Table
 st.markdown("""
 ### Historical Conflict Benchmarks:
 | Conflict | Duration (days) | Casualties | Source Alignment |
@@ -205,7 +184,6 @@ st.markdown("""
 | Russo-Ukrainian | ~540K–790K | ~500K–800K | ±5.2% |
 """)
 
-# Footer
 st.markdown("""
 ---
 **Credits:** Strategic modeling by Infinity Fabric LLC.
