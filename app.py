@@ -140,6 +140,25 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(chart, use_container_width=True)
 
+    # Line graph showing degradation over time (curved trend)
+    line_data = pd.DataFrame({
+        "Days": list(range(0, duration_days + 1, 7)),
+        "Min": [sum([daily_range[ws][0] for ws in daily_range]) * i for i in range(0, duration_days + 1, 7)],
+        "Max": [sum([daily_range[ws][1] for ws in daily_range]) * i for i in range(0, duration_days + 1, 7)]
+    })
+
+    line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
+        x=alt.X("Days:Q"),
+        y=alt.Y("value:Q", title="Cumulative Casualties"),
+        color='key:N'
+    ).properties(
+        width=700,
+        height=300,
+        title=f"{title} Cumulative Casualty Curve"
+    )
+
+    st.altair_chart(line_chart, use_container_width=True)
+
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
