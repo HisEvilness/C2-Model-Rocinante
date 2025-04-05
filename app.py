@@ -108,7 +108,7 @@ def calculate_modifier(exp, moral, logi):
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    decay_curve_factor = 1 + decay_strength * duration * (0.6 + 0.4 * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd, duration))
+    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_scaling(moral)) * commander_scaling(cmd, duration))
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
@@ -120,7 +120,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
-
+    
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
     chart_data = pd.DataFrame({
