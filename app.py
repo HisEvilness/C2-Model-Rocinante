@@ -61,7 +61,6 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
-# Intensity Map
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
@@ -71,7 +70,6 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Weapon Contribution
 weapons = {
     "Artillery": 0.60 if artillery_on else 0.0,
     "Drones": 0.20 if drones_on else 0.0,
@@ -82,20 +80,12 @@ weapons = {
     "Air Strikes": 0.03 if airstrikes_on else 0.0
 }
 
-# Scaling functions
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
 def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-# Decay dynamic function
-def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, alpha=0.6, beta=0.5):
-    avg_mod = (moral + med + logi + cmd) / 4
-    enemy_advantage = (enemy_exp * enemy_ew) / max((exp * ew), 0.01)
-    return 1 + alpha * (1 - avg_mod) + beta * (enemy_advantage - 1)
-
-# Main casualty calculator
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
     results, total = {}, {}
     total_share = sum(weapons.values())
@@ -109,26 +99,28 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
 
-# Charting
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
 
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
-        "Cumulative Min": [v[0] for v in cumulative_range.values()],
-        "Cumulative Max": [v[1] for v in cumulative_range.values()]
-    }).melt(id_vars="Weapon System", var_name="Type", value_name="Casualties")
+        "Min": [v[0] for v in cumulative_range.values()],
+        "Max Increment": [v[1] - v[0] for v in cumulative_range.values()]
+    })
 
-    chart = alt.Chart(chart_data).mark_bar().encode(
+    base = alt.Chart(chart_data).mark_bar(color="#1f77b4").encode(
         x='Weapon System:N',
-        y='Casualties:Q',
-        color='Type:N',
-        tooltip=['Weapon System', 'Type', 'Casualties']
-    ).properties(width=650, height=400)
+        y='Min:Q'
+    )
 
-    st.altair_chart(chart, use_container_width=True)
+    overlay = alt.Chart(chart_data).mark_bar(color="#aec7e8").encode(
+        x='Weapon System:N',
+        y='Max Increment:Q',
+        yOffset='Min:Q'
+    )
 
-    # Line graph with decay curve
+    st.altair_chart(base + overlay, use_container_width=True)
+
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
@@ -142,7 +134,6 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(line_chart, use_container_width=True)
 
-# Display block
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(
@@ -162,7 +153,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
     plot_casualty_chart(name, daily_range, cumulative_range)
 
-# Execution
+# Show forces
 st.markdown("---")
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
