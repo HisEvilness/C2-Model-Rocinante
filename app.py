@@ -92,18 +92,33 @@ intensity_map = {
 base_rus, base_ukr = intensity_map[intensity_level]
 
 # Modifiers
+
+def adjust_base_rate(base, moral, ew, logi):
+    # Simulate real-world firepower inefficiency and suppression effects
+    realism_factor = 0.85 + 0.1 * math.tanh((moral + ew + logi - 3))
+    return base * realism_factor
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
-def commander_scaling(cmd): return 1 / (1 + 0.4 * cmd)  # Slightly increased impact
+def commander_scaling(cmd, duration):
+    # Dynamic commander impact: more effect in modern, less in historical (proxy via duration)
+    if duration < 500:
+        factor = 0.3  # less influence in short or early wars
+    elif duration < 1500:
+        factor = 0.4  # moderate impact
+    else:
+        factor = 0.5  # sustained campaigns benefit more from leadership
+    return 1 / (1 + factor * cmd)  # Slightly increased impact
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
-    decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
+    decay_strength = 0.0003 + 0.0001 * math.tanh(duration / 1000)
+    decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd, duration)
     for system, share in weapons.items():
         system_eff = (share / total_share) * ew_enemy
-        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd)
+        adjusted_base = adjust_base_rate(base_rate, moral, ew_enemy, logi)
+        base = adjusted_base * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd, duration)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
         results[system] = (round(daily_min, 1), round(daily_max, 1))
