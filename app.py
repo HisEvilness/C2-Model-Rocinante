@@ -99,7 +99,9 @@ morale_decay_factor = 1 - 0.05 * math.tanh(duration_days / 1000)
 def morale_scaling(m):
     return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
-def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+def medical_scaling(med, morale, logi):
+    logistics_penalty = 1 + 0.2 * (logistic_scaling(logi) - 1)
+    return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1)) * logistics_penalty
 def commander_scaling(cmd, duration):
     return 1 / (1 + 0.3 * cmd)  # Restored moderate scaling  # Slightly increased impact
 def calculate_modifier(exp, moral, logi):
@@ -112,9 +114,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
-        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.03 * cmd_factor, 0.95), 1.10)
+        weapon_boost = min(max(1 + 0.10 * (logi_factor - 1) - 0.02 * cmd_factor, 0.95), 1.15)
         system_eff = (share / total_share) * ew_enemy * weapon_boost
-        base = base_rate * system_eff * modifier * medical_scaling(med, moral)
+        base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
         results[system] = (round(daily_min, 1), round(daily_max, 1))
