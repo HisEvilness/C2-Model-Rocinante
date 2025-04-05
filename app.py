@@ -103,8 +103,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     results = {}
     total = {}
     for system, share in weapons.items():
-        min_adj = 0.95
-        max_adj = 1.10
+        conf = 1 - abs(moral - 1) * 0.1
+        min_adj = conf * 0.98
+        max_adj = conf * 1.05
         system_eff = share * ew_enemy
         daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med, moral) * commander_scaling(cmd)
         daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med, moral) * commander_scaling(cmd)
