@@ -29,10 +29,12 @@ Casualty and degradation calculations are based on:
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
-    duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
+    duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7,
+        help="Select the number of days to simulate the conflict over.")
 
     st.subheader("Combat Intensity Phase")
-    intensity_level = st.slider("Combat Intensity (1=Low, 3=High)", 1, 3, 2)
+    intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3,
+        help="Higher intensity increases base casualty rates.")
 
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.10, step=0.01)
@@ -63,8 +65,10 @@ with st.sidebar:
 
 intensity_map = {
     1: (20, 600),
-    2: (120, 1500),
-    3: (200, 3500)
+    2: (70, 1000),
+    3: (120, 1500),
+    4: (160, 2500),
+    5: (200, 3500)
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
@@ -100,19 +104,20 @@ def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, 
     enemy_advantage = (enemy_exp * enemy_ew) / max((exp * ew), 0.01)
     return 1 + alpha * (1 - avg_mod) + beta * (enemy_advantage - 1)
 
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, decay_strength=0.00035):
     results = {}
     total = {}
     total_share = sum(weapons.values())
+    decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
     for system, share in weapons.items():
         system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
         base = base_rate * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd)
-        decay_effect = 1 + 0.00025 * duration  # decay growth over time
-        daily_min = base * 0.95 * decay_effect
-        daily_max = base * 1.05 * decay_effect
+        daily_base = base * decay_curve_factor
+        daily_min = daily_base * 0.95
+        daily_max = daily_base * 1.05
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
-        results[system] = (round(daily_min, 1), round(daily_max, 1))
+        results[system] = (round(daily_base, 1), round(daily_max - daily_base, 1))
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
 
