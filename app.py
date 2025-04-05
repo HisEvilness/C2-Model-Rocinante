@@ -37,7 +37,7 @@ with st.sidebar:
     cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.17, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.58, step=0.01)
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.05, step=0.01)
-    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
+    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.00, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
@@ -45,7 +45,7 @@ with st.sidebar:
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
-    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
 
     st.subheader("Environment & Weapon Systems")
     artillery_on = st.checkbox("Include Artillery", True)
