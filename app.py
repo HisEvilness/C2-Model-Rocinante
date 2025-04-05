@@ -3,16 +3,15 @@ import pandas as pd
 import math
 import altair as alt
 
-# Title
+# Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
 
 st.markdown("""
 This dashboard estimates cumulative casualty outcomes using a validated conflict model.
 
 ### Core Model: How It Works
-
 Casualty and degradation calculations are based on:
-- Artillery usage (70%–90% of losses in conventional war)
+- Artillery usage (70–90% of losses in conventional war)
 - Drone warfare and air strikes adjusted for EW effects
 - Commander efficiency and leadership survivability bonuses
 - Morale and logistics impact on operational performance
@@ -23,15 +22,13 @@ Casualty and degradation calculations are based on:
 - 🇺🇦 Ukrainian drone usage is heavily impacted by Russian EW
 - 🇺🇦 suffers long-term degradation due to rotating conscripts and veteran losses
 
-> This simulation aligns with validated AI predictions and 24+ historical conflicts for casualty realism.
+> This simulation aligns with validated AI predictions and 25+ historical conflicts for casualty realism.
 """)
 
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
     duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
-
-    st.subheader("Combat Intensity Phase")
     intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
 
     st.subheader("🇷🇺 Russian Modifiers")
@@ -50,16 +47,35 @@ with st.sidebar:
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)
 
-    st.subheader("Environment & System Controls")
-    st.markdown("---")
-    st.caption("Enable or disable weapon system contributions")
-    artillery_on = st.checkbox("Include Artillery", value=True)
-    drones_on = st.checkbox("Include Drones", value=True)
-    snipers_on = st.checkbox("Include Snipers", value=True)
-    small_arms_on = st.checkbox("Include Small Arms", value=True)
-    heavy_on = st.checkbox("Include Heavy Weapons", value=True)
-    armor_on = st.checkbox("Include Armored Vehicles", value=True)
-    airstrikes_on = st.checkbox("Include Air Strikes", value=True)
+    st.subheader("Environment & Weapon Systems")
+    artillery_on = st.checkbox("Include Artillery", True)
+    drones_on = st.checkbox("Include Drones", True)
+    snipers_on = st.checkbox("Include Snipers", True)
+    small_arms_on = st.checkbox("Include Small Arms", True)
+    heavy_on = st.checkbox("Include Heavy Weapons", True)
+    armor_on = st.checkbox("Include Armored Vehicles", True)
+    airstrikes_on = st.checkbox("Include Air Strikes", True)
+
+# Weapon shares
+share_values = {
+    "Artillery": 0.70,
+    "Drones": 0.10,
+    "Snipers": 0.02,
+    "Small Arms": 0.05,
+    "Heavy Weapons": 0.05,
+    "Armored Vehicles": 0.10,
+    "Air Strikes": 0.05
+}
+weapons = {
+    "Artillery": share_values["Artillery"] if artillery_on else 0.0,
+    "Drones": share_values["Drones"] if drones_on else 0.0,
+    "Snipers": share_values["Snipers"] if snipers_on else 0.0,
+    "Small Arms": share_values["Small Arms"] if small_arms_on else 0.0,
+    "Heavy Weapons": share_values["Heavy Weapons"] if heavy_on else 0.0,
+    "Armored Vehicles": share_values["Armored Vehicles"] if armor_on else 0.0,
+    "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
+}
+total_share = sum(weapons.values())
 
 # Intensity Mapping
 intensity_map = {
@@ -71,39 +87,14 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-share_values = {
-    "Artillery": 0.70,
-    "Drones": 0.10,
-    "Snipers": 0.02,
-    "Small Arms": 0.05,
-    "Heavy Weapons": 0.05,
-    "Armored Vehicles": 0.10,
-    "Air Strikes": 0.05
-}
-
-weapons = {
-    "Artillery": share_values["Artillery"] if artillery_on else 0.0,
-    "Drones": share_values["Drones"] if drones_on else 0.0,
-    "Snipers": share_values["Snipers"] if snipers_on else 0.0,
-    "Small Arms": share_values["Small Arms"] if small_arms_on else 0.0,
-    "Heavy Weapons": share_values["Heavy Weapons"] if heavy_on else 0.0,
-    "Armored Vehicles": share_values["Armored Vehicles"] if armor_on else 0.0,
-    "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
-}
-
-
-total_share = sum(weapons.values())
-
+# Modifiers
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
-
-def medical_scaling(med, morale):
-    morale_boost = 1 + 0.1 * (morale - 1)
-    return (1 + (1 - med) ** 1.3) * morale_boost
-
+def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
 def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
+# Casualty calculator with decay
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
     results, total = {}, {}
     decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
@@ -116,38 +107,36 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
 
+# Plot Functions
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
-
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
         "Min": [v[0] for v in cumulative_range.values()],
         "Max": [v[1] for v in cumulative_range.values()]
     })
-    chart_data["Max Increment"] = chart_data["Max"] - chart_data["Min"]
+    chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
 
     chart = alt.Chart(chart_data).mark_bar().encode(
         x=alt.X('Weapon System:N', title='System'),
         y=alt.Y('Min:Q', title='Min Casualties'),
-        y2=alt.Y2('Max:Q'),
+        y2='Max:Q',
         tooltip=['Weapon System', 'Min', 'Max']
     ).properties(width=600, height=400)
-
     st.altair_chart(chart, use_container_width=True)
 
+    # Line curve
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
         "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
     })
     line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
-        x='Days:Q',
-        y=alt.Y('value:Q', title="Cumulative Casualties"),
-        color='key:N'
+        x='Days:Q', y=alt.Y('value:Q', title="Cumulative Casualties"), color='key:N'
     ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
-
     st.altair_chart(line_chart, use_container_width=True)
 
+# Display Force
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(
@@ -167,12 +156,12 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
     plot_casualty_chart(name, daily_range, cumulative_range)
 
-# Show forces
+# Outputs
 st.markdown("---")
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
 
-# Benchmark Summary
+# Benchmark Table
 st.markdown("""
 ### Historical Conflict Benchmarks
 | Conflict | Duration (days) | Casualties | Alignment |
