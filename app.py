@@ -61,6 +61,7 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
+# Intensity Mapping
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
@@ -70,25 +71,32 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-weapons = {
-    "Artillery": 0.60 if artillery_on else 0.0,
-    "Drones": 0.20 if drones_on else 0.0,
-    "Snipers": 0.02 if snipers_on else 0.0,
-    "Small Arms": 0.05 if small_arms_on else 0.0,
-    "Heavy Weapons": 0.05 if heavy_on else 0.0,
-    "Armored Vehicles": 0.05 if armor_on else 0.0,
-    "Air Strikes": 0.03 if airstrikes_on else 0.0
+# Weapon Weights
+share_values = {
+    "Artillery": 0.60,
+    "Drones": 0.20,
+    "Snipers": 0.02,
+    "Small Arms": 0.05,
+    "Heavy Weapons": 0.05,
+    "Armored Vehicles": 0.05,
+    "Air Strikes": 0.03
 }
+
+weapons = {k: (v if eval(k.lower().replace(" ", "_") + "_on") else 0.0) for k, v in share_values.items()}
+total_share = sum(weapons.values())
 
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
-def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+
+def medical_scaling(med, morale):
+    morale_boost = 1 + 0.1 * (morale - 1)
+    return (1 + (1 - med) ** 1.3) * morale_boost
+
 def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
     results, total = {}, {}
-    total_share = sum(weapons.values())
     decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
     for system, share in weapons.items():
         system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
@@ -105,21 +113,18 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
         "Min": [v[0] for v in cumulative_range.values()],
-        "Max Increment": [v[1] - v[0] for v in cumulative_range.values()]
+        "Max": [v[1] for v in cumulative_range.values()]
     })
+    chart_data["Max Increment"] = chart_data["Max"] - chart_data["Min"]
 
-    base = alt.Chart(chart_data).mark_bar(color="#1f77b4").encode(
-        x='Weapon System:N',
-        y='Min:Q'
-    )
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x=alt.X('Weapon System:N', title='System'),
+        y=alt.Y('Min:Q', title='Min Casualties'),
+        y2=alt.Y2('Max:Q'),
+        tooltip=['Weapon System', 'Min', 'Max']
+    ).properties(width=600, height=400)
 
-    overlay = alt.Chart(chart_data).mark_bar(color="#aec7e8").encode(
-        x='Weapon System:N',
-        y='Max Increment:Q',
-        yOffset='Min:Q'
-    )
-
-    st.altair_chart(base + overlay, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
@@ -165,8 +170,10 @@ st.markdown("""
 |----------|------------------|------------|-----------|
 | Verdun (WWI) | 300 | ~700,000 | Matches artillery attrition |
 | Eastern Front (WWII) | 1410 | ~6M | Aligned with extended high-intensity |
-| Vietnam | 5475 | ~1.1M | Progressive attrition + morale loss |
-| Iraq | 2920 | ~400–650K | Urban + airstrike dynamics |
+| Vietnam War | 5475 | ~1.1M | Attrition and morale degradation |
+| Korean War | 1128 | ~1.2M | High ground combat and seasonal intensity |
+| Iran–Iraq War | 2920 | ~1M+ | Prolonged trench, chemical, artillery attrition |
+| Iraq War | 2920 | ~400–650K | Urban + airstrike dynamics |
 | Russo-Ukrainian | 1031+ | ~500–800K | Validated with modern warfare factors |
 """)
 
