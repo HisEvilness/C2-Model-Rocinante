@@ -139,7 +139,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
-    
+
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
     chart_data = pd.DataFrame({
