@@ -113,11 +113,16 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
     decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_scaling(moral)) * commander_scaling(cmd, duration))
     for system, share in weapons.items():
-        logi_factor = logistic_scaling(logi)
-        cmd_factor = commander_scaling(cmd, duration)
-        weapon_boost = min(max(1 + 0.10 * (logi_factor - 1) - 0.02 * cmd_factor, 0.95), 1.10)
-        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
-        system_eff = (share / total_share) * ew_enemy * ew_multiplier * weapon_boost * (1 + 0.1 * cmd - 0.08 * cmd_factor)
+        # Dynamic weapon-type scaling
+        if system == "Artillery":
+            system_scaling = logistic_scaling(logi) * 1.05
+        elif system == "Drones":
+            drone_decay = max(0.9, 1 - 0.0002 * duration)
+            system_scaling = 0.85 * drone_decay
+        else:
+            system_scaling = 1.0
+        
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
