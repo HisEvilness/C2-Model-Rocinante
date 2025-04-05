@@ -101,14 +101,9 @@ def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
 def commander_scaling(cmd, duration):
-    # Dynamic commander impact: more effect in modern, less in historical (proxy via duration)
-    if duration < 500:
-        factor = 0.3  # less influence in short or early wars
-    elif duration < 1500:
-        factor = 0.4  # moderate impact
-    else:
-        factor = 0.5  # sustained campaigns benefit more from leadership
-    return 1 / (1 + factor * cmd)  # Slightly increased impact
+    # Refined commander impact: capped at ~15–20% maximum reduction
+    base_effect = 1 - (0.15 + 0.05 * math.tanh((duration - 600) / 600))
+    return 1 - base_effect * cmd  # Slightly increased impact
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
