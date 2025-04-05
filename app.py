@@ -95,7 +95,7 @@ base_rus, base_ukr = intensity_map[intensity_level]
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
-def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
+def commander_scaling(cmd): return 1 / (1 + 0.4 * cmd)  # Slightly increased impact
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
