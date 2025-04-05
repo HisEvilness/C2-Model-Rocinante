@@ -69,13 +69,13 @@ intensity_map = {
 base_rus, base_ukr = intensity_map[intensity_level]
 
 weapons = {
-    "Artillery": 0.70 if artillery_on else 0.0,
-    "Drones": 0.10 if drones_on else 0.0,
+    "Artillery": 0.60 if artillery_on else 0.0,
+    "Drones": 0.20 if drones_on else 0.0,
     "Snipers": 0.02 if snipers_on else 0.0,
     "Small Arms": 0.05 if small_arms_on else 0.0,
     "Heavy Weapons": 0.05 if heavy_on else 0.0,
-    "Armored Vehicles": 0.10 if armor_on else 0.0,
-    "Air Strikes": 0.05 if airstrikes_on else 0.0
+    "Armored Vehicles": 0.05 if armor_on else 0.0,
+    "Air Strikes": 0.03 if airstrikes_on else 0.0
 }
 
 def morale_scaling(m):
@@ -89,7 +89,8 @@ def medical_scaling(med, morale):
     return (1 + (1 - med) ** 1.3) * morale_boost
 
 def commander_scaling(cmd):
-    return 1 - (0.65 * cmd ** 1.3)
+    boost = 1 + 0.2 * cmd
+    return 1 / boost
 
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
@@ -104,12 +105,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     total = {}
     total_share = sum(weapons.values())
     for system, share in weapons.items():
-        conf = 1 - abs(moral - 1) * 0.1
-        min_adj = conf * 0.98
-        max_adj = conf * 1.05
         system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
-        daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med, moral) * commander_scaling(cmd)
-        daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med, moral) * commander_scaling(cmd)
+        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd)
+        decay_effect = 1 + 0.00025 * duration  # decay growth over time
+        daily_min = base * 0.95 * decay_effect
+        daily_max = base * 1.05 * decay_effect
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
         results[system] = (round(daily_min, 1), round(daily_max, 1))
