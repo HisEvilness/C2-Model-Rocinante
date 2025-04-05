@@ -100,12 +100,12 @@ def morale_scaling(m):
     return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale, logi):
-    logistics_penalty = 1 + 0.2 * (logistic_scaling(logi) - 1)
+    logistics_penalty = 1 + 0.2 * (1 - logistic_scaling(logi)) if logistic_scaling(logi) < 1 else 1 + 0.1 * (logistic_scaling(logi) - 1)
     return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1)) * logistics_penalty
 def commander_scaling(cmd, duration):
     return 1 / (1 + 0.3 * cmd)  # Restored moderate scaling  # Slightly increased impact
 def calculate_modifier(exp, moral, logi):
-    return exp * morale_scaling(moral) * logistic_scaling(logi)
+    return exp * morale_scaling(moral)
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
@@ -114,8 +114,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
-        weapon_boost = min(max(1 + 0.10 * (logi_factor - 1) - 0.02 * cmd_factor, 0.95), 1.15)
-        system_eff = (share / total_share) * ew_enemy * weapon_boost
+        weapon_boost = min(max(1 + 0.10 * (logi_factor - 1) - 0.02 * cmd_factor, 0.95), 1.10)
+        ew_multiplier = 0.5 if system in ['Drones', 'Air Strikes'] else 1.0
+        system_eff = (share / total_share) * ew_enemy * ew_multiplier * weapon_boost
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
