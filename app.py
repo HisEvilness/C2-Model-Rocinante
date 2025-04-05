@@ -108,7 +108,7 @@ def calculate_modifier(exp, moral, logi):
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd, duration)
+    decay_curve_factor = 1 + decay_strength * duration * (0.6 + 0.4 * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd, duration))
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
