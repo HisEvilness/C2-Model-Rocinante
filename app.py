@@ -102,11 +102,12 @@ def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
     results = {}
     total = {}
+    total_share = sum(weapons.values())
     for system, share in weapons.items():
         conf = 1 - abs(moral - 1) * 0.1
         min_adj = conf * 0.98
         max_adj = conf * 1.05
-        system_eff = share * ew_enemy
+        system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
         daily_min = base_rate * system_eff * modifier * min_adj * medical_scaling(med, moral) * commander_scaling(cmd)
         daily_max = base_rate * system_eff * modifier * max_adj * medical_scaling(med, moral) * commander_scaling(cmd)
         cumulative_min = daily_min * duration
