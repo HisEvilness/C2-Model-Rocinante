@@ -115,18 +115,18 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
-        weapon_boost = min(max(1 + 0.08 * (logi_factor - 1) - 0.015 * cmd_factor, 0.95), 1.08)
+        weapon_boost = min(max(1 + 0.06 * (logi_factor - 1) - 0.012 * cmd_factor, 0.95), 1.06)
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
-        commander_bonus = 1 + 0.08 * cmd
-        enemy_cmd_suppression = 1 - 0.06 * cmd_factor
+        commander_bonus = 1 + 0.06 * cmd
+        enemy_cmd_suppression = 1 - 0.05 * cmd_factor
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
         # Dynamic weapon-type scaling
         if system == "Artillery":
-            system_scaling = logistic_scaling(logi) * 1.02
+            system_scaling = logistic_scaling(logi) * 1.01
         elif system == "Drones":
             drone_decay = max(0.9, 1 - 0.0002 * duration)
-            system_scaling = 0.8 * drone_decay
+            system_scaling = 0.75 * drone_decay
         else:
             system_scaling = 1.0
 
