@@ -94,8 +94,10 @@ def commander_scaling(cmd):
 def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-def decay_curve_factor(moral, logi, cmd):
-    return 1.85 + (1 - morale_scaling(moral)) * 0.15 + (1 - logistic_scaling(logi)) * 0.1 + (1 - commander_scaling(cmd)) * 0.1
+def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, alpha=0.6, beta=0.5):
+    avg_mod = (moral + med + logi + cmd) / 4
+    enemy_advantage = (enemy_exp * enemy_ew) / max((exp * ew), 0.01)
+    return 1 + alpha * (1 - avg_mod) + beta * (enemy_advantage - 1)
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
     results = {}
@@ -129,7 +131,9 @@ def plot_casualty_chart(title, daily_range, cumulative_range, decay):
 
     st.altair_chart(bar_chart, use_container_width=True)
 
-    line_data = pd.DataFrame({"Days": list(range(0, duration_days + 1, 7))})
+    line_data = pd.DataFrame({
+        "Days": list(range(0, duration_days + 1, 7))
+    })
     line_data["Min"] = [sum([daily_range[ws][0] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
     line_data["Max"] = [sum([daily_range[ws][1] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
 
@@ -145,9 +149,9 @@ def plot_casualty_chart(title, daily_range, cumulative_range, decay):
 
     st.altair_chart(line_chart, use_container_width=True)
 
-def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration):
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
     modifier = calculate_modifier(exp, moral, logi)
-    decay = decay_curve_factor(moral, logi, cmd)
+    decay = dynamic_decay_exponent(moral, med, logi, cmd, exp, ew_enemy, enemy_exp, enemy_ew)
     daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
@@ -163,8 +167,8 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     plot_casualty_chart(f"{name}", daily_range, cumulative_range, decay)
 
 st.markdown("---")
-display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days)
-display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days)
+display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
+display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
 
 st.markdown("""
 ### Historical Conflict Benchmarks:
