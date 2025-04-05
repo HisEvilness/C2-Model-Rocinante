@@ -72,14 +72,14 @@ intensity_map = {
 base_rus, base_ukr = intensity_map[intensity_level]
 
 # Weapon Weights
-share_values = {
-    "Artillery": 0.60,
-    "Drones": 0.20,
-    "Snipers": 0.02,
-    "Small Arms": 0.05,
-    "Heavy Weapons": 0.05,
-    "Armored Vehicles": 0.05,
-    "Air Strikes": 0.03
+weapons = {
+    "Artillery": share_values["Artillery"] if artillery_on else 0.0,
+    "Drones": share_values["Drones"] if drones_on else 0.0,
+    "Snipers": share_values["Snipers"] if snipers_on else 0.0,
+    "Small Arms": share_values["Small Arms"] if small_arms_on else 0.0,
+    "Heavy Weapons": share_values["Heavy Weapons"] if heavy_on else 0.0,
+    "Armored Vehicles": share_values["Armored Vehicles"] if armor_on else 0.0,
+    "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
 }
 
 weapons = {k: (v if eval(k.lower().replace(" ", "_") + "_on") else 0.0) for k, v in share_values.items()}
