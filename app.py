@@ -5,7 +5,6 @@ import altair as alt
 
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
-im
 st.markdown("""
 This dashboard estimates cumulative casualty outcomes using a validated conflict model.
 
