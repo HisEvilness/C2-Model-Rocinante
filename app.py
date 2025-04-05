@@ -3,9 +3,14 @@ import pandas as pd
 import math
 import altair as alt
 
+port streamlit as st
+import pandas as pd
+import math
+import altair as alt
+
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
-
+im
 st.markdown("""
 This dashboard estimates cumulative casualty outcomes using a validated conflict model.
 
@@ -37,7 +42,7 @@ with st.sidebar:
     cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.17, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.58, step=0.01)
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.05, step=0.01)
-    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.00, step=0.01)
+    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.85, step=0.01)
@@ -45,7 +50,7 @@ with st.sidebar:
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
-    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.90, step=0.01)
 
     st.subheader("Environment & Weapon Systems")
     artillery_on = st.checkbox("Include Artillery", True)
@@ -59,7 +64,7 @@ with st.sidebar:
 # Weapon shares
 share_values = {
     "Artillery": 0.70,
-    "Drones": 0.10,
+    "Drones": 0.13,
     "Snipers": 0.02,
     "Small Arms": 0.05,
     "Heavy Weapons": 0.05,
@@ -101,11 +106,13 @@ def morale_scaling(m):
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale, logi):
     logistics_penalty = 1 + 0.2 * (1 - logistic_scaling(logi)) if logistic_scaling(logi) < 1 else 1 + 0.1 * (logistic_scaling(logi) - 1)
-    return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1)) * logistics_penalty
+    return (1 + (1 - med) ** 1.3) * logistics_penalty
 def commander_scaling(cmd, duration):
     return 1 / (1 + 0.3 * cmd)  # Restored moderate scaling  # Slightly increased impact
 def calculate_modifier(exp, moral, logi):
-    return exp * morale_scaling(moral)
+    logi_effect = logistic_scaling(logi)
+    commander_influence = 1 + 0.05 * (logi_effect - 1)
+    return exp * morale_scaling(moral) * commander_influence
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
@@ -115,8 +122,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
         weapon_boost = min(max(1 + 0.10 * (logi_factor - 1) - 0.02 * cmd_factor, 0.95), 1.10)
-        ew_multiplier = 0.5 if system in ['Drones', 'Air Strikes'] else 1.0
-        system_eff = (share / total_share) * ew_enemy * ew_multiplier * weapon_boost
+        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
+        system_eff = (share / total_share) * ew_enemy * ew_multiplier * weapon_boost * (1 + 0.1 * cmd - 0.08 * cmd_factor)
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
