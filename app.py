@@ -84,7 +84,7 @@ if total_share == 0:
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
-    3: (120, 1500),
+    3: (110, 1400),
     4: (160, 2500),
     5: (200, 3500)
 }
@@ -123,10 +123,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         # Dynamic weapon-type scaling
         if system == "Artillery":
-            system_scaling = logistic_scaling(logi) * 0.98
+            system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
             drone_decay = max(0.9, 1 - 0.0002 * duration)
-            system_scaling = 0.7 * drone_decay
+            system_scaling = 0.65 * drone_decay
         else:
             system_scaling = 1.0
 
