@@ -97,8 +97,7 @@ base_rus, base_ukr = intensity_map[intensity_level]
 morale_decay_factor = 1 - 0.05 * math.tanh(duration_days / 1000)
 
 def morale_scaling(m):
-    base = 1 + 0.8 * math.tanh(2 * (m - 1))
-    return base * morale_decay_factor
+    return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
 def commander_scaling(cmd, duration):
@@ -109,7 +108,7 @@ def calculate_modifier(exp, moral, logi):
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
     results, total = {}, {}
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd, duration)
+    decay_curve_factor = 1 + decay_strength * duration
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
