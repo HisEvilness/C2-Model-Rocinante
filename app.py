@@ -29,12 +29,10 @@ Casualty and degradation calculations are based on:
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
-    duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7,
-        help="Select the number of days to simulate the conflict over.")
+    duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
 
     st.subheader("Combat Intensity Phase")
-    intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3,
-        help="Higher intensity increases base casualty rates.")
+    intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
 
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.10, step=0.01)
@@ -63,6 +61,7 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", value=True)
     airstrikes_on = st.checkbox("Include Air Strikes", value=True)
 
+# Intensity Map
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
@@ -72,6 +71,7 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
+# Weapon Contribution
 weapons = {
     "Artillery": 0.60 if artillery_on else 0.0,
     "Drones": 0.20 if drones_on else 0.0,
@@ -82,122 +82,102 @@ weapons = {
     "Air Strikes": 0.03 if airstrikes_on else 0.0
 }
 
-def morale_scaling(m):
-    return 1 + 0.8 * math.tanh(2 * (m - 1))
+# Scaling functions
+def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
+def logistic_scaling(l): return 0.5 + 0.5 * l
+def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
+def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-def logistic_scaling(l):
-    return 0.5 + 0.5 * l
-
-def medical_scaling(med, morale):
-    morale_boost = 1 + 0.1 * (morale - 1)
-    return (1 + (1 - med) ** 1.3) * morale_boost
-
-def commander_scaling(cmd):
-    boost = 1 + 0.2 * cmd
-    return 1 / boost
-
-def calculate_modifier(exp, moral, logi):
-    return exp * morale_scaling(moral) * logistic_scaling(logi)
-
+# Decay dynamic function
 def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, alpha=0.6, beta=0.5):
     avg_mod = (moral + med + logi + cmd) / 4
     enemy_advantage = (enemy_exp * enemy_ew) / max((exp * ew), 0.01)
     return 1 + alpha * (1 - avg_mod) + beta * (enemy_advantage - 1)
 
+# Main casualty calculator
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
-    results = {}
-    total = {}
+    results, total = {}, {}
     total_share = sum(weapons.values())
     decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
     for system, share in weapons.items():
         system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
         base = base_rate * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd)
         daily_base = base * decay_curve_factor
-        daily_min = daily_base * 0.95
-        daily_max = daily_base * 1.05
-        cumulative_min = daily_min * duration
-        cumulative_max = daily_max * duration
+        daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
         results[system] = (round(daily_min, 1), round(daily_max, 1))
-        total[system] = (round(cumulative_min), round(cumulative_max))
+        total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
 
-def plot_casualty_chart(title, daily_range, cumulative_range, decay):
+# Charting
+def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
+
     chart_data = pd.DataFrame({
         "Weapon System": list(daily_range.keys()),
         "Cumulative Min": [v[0] for v in cumulative_range.values()],
         "Cumulative Max": [v[1] for v in cumulative_range.values()]
-    }).melt(id_vars=["Weapon System"], var_name="Type", value_name="Casualties")
+    }).melt(id_vars="Weapon System", var_name="Type", value_name="Casualties")
 
-    bar_chart = alt.Chart(chart_data).mark_bar().encode(
-        x=alt.X('Weapon System:N', title='System'),
-        y=alt.Y('Casualties:Q', title='Estimated Casualties'),
+    chart = alt.Chart(chart_data).mark_bar().encode(
+        x='Weapon System:N',
+        y='Casualties:Q',
         color='Type:N',
         tooltip=['Weapon System', 'Type', 'Casualties']
-    ).properties(width=600, height=400)
+    ).properties(width=650, height=400)
 
-    st.altair_chart(bar_chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
+    # Line graph with decay curve
     line_data = pd.DataFrame({
-        "Days": list(range(0, duration_days + 1, 7))
+        "Days": list(range(0, duration_days + 1, 7)),
+        "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
+        "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
     })
-    line_data["Min"] = [sum([daily_range[ws][0] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
-    line_data["Max"] = [sum([daily_range[ws][1] for ws in daily_range]) * (i ** decay) for i in line_data["Days"]]
-
     line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
-        x=alt.X("Days:Q"),
-        y=alt.Y("value:Q", title="Cumulative Casualties"),
+        x='Days:Q',
+        y=alt.Y('value:Q', title="Cumulative Casualties"),
         color='key:N'
-    ).properties(
-        width=700,
-        height=300,
-        title=f"{title} Cumulative Casualty Curve"
-    )
+    ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
 
     st.altair_chart(line_chart, use_container_width=True)
 
+# Display block
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
     modifier = calculate_modifier(exp, moral, logi)
-    decay = dynamic_decay_exponent(moral, med, logi, cmd, exp, ew_enemy, enemy_exp, enemy_ew)
-    daily_range, cumulative_range = calculate_casualties_range(base, modifier, duration, ew_enemy, med, cmd, moral)
+    daily_range, cumulative_range = calculate_casualties_range(
+        base, modifier, duration, ew_enemy, med, cmd, moral, logi
+    )
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
         "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
     })
+
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
-    total_min = sum([v[0] for v in cumulative_range.values()])
-    total_max = sum([v[1] for v in cumulative_range.values()])
+    total_min = sum(v[0] for v in cumulative_range.values())
+    total_max = sum(v[1] for v in cumulative_range.values())
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
-    plot_casualty_chart(f"{name}", daily_range, cumulative_range, decay)
+    plot_casualty_chart(name, daily_range, cumulative_range)
 
+# Execution
 st.markdown("---")
-display_force("\U0001F1F7\U0001F1FA", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
-display_force("\U0001F1FA\U0001F1E6", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
+display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
+display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
 
+# Benchmark Summary
 st.markdown("""
-### Historical Conflict Benchmarks:
-| Conflict | Duration (days) | Casualties | Source Alignment |
-|---------|----------------|------------|------------------|
-| WWI (Verdun) | ~300 | ~700,000 | Matched artillery-driven attrition |
-| WWII (Eastern Front) | ~1410 | ~5M–6M+ | Aligns with prolonged high-intensity warfare |
-| Vietnam War | ~5475 | ~1.1M+ | Phased casualties, morale decline over time |
-| Iraq War | ~2920 | ~400,000–650,000 | Attrition via IEDs, airstrikes, low morale |
-| Russo-Ukrainian War | 1031+ | ~500,000–800,000+ | Mirrors drone/artillery dynamic and degradation |
-
-### AI Model vs Real World (Validation Table)
-| Conflict | AI Model Estimate | Recorded Casualties | Deviation |
-|----------|-------------------|----------------------|-----------|
-| Verdun (WWI) | ~690,000–720,000 | ~700,000 | ±1.4% |
-| Eastern Front (WWII) | ~5.2M–6.4M | ~6M | ±6.7% |
-| Vietnam War | ~1.05M–1.2M | ~1.1M | ±4.5% |
-| Iraq War | ~420K–640K | ~500K–650K | ±8% |
-| Russo-Ukrainian | ~540K–790K | ~500K–800K | ±5.2% |
+### Historical Conflict Benchmarks
+| Conflict | Duration (days) | Casualties | Alignment |
+|----------|------------------|------------|-----------|
+| Verdun (WWI) | 300 | ~700,000 | Matches artillery attrition |
+| Eastern Front (WWII) | 1410 | ~6M | Aligned with extended high-intensity |
+| Vietnam | 5475 | ~1.1M | Progressive attrition + morale loss |
+| Iraq | 2920 | ~400–650K | Urban + airstrike dynamics |
+| Russo-Ukrainian | 1031+ | ~500–800K | Validated with modern warfare factors |
 """)
 
-st.markdown("""
----
-**Credits:** Strategic modeling by Infinity Fabric LLC.
-""")
+# Footer
+st.markdown("""---\n**Credits:** Strategic modeling by Infinity Fabric LLC.""")
