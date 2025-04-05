@@ -77,6 +77,10 @@ weapons = {
 }
 total_share = sum(weapons.values())
 
+if total_share == 0:
+    st.warning("Please enable at least one weapon system to view casualty estimates.")
+    st.stop()
+
 # Intensity Mapping
 intensity_map = {
     1: (20, 600),
@@ -94,12 +98,11 @@ def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (mo
 def commander_scaling(cmd): return 1 / (1 + 0.2 * cmd)
 def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
 
-# Casualty calculator with decay
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
     results, total = {}, {}
     decay_curve_factor = 1 + decay_strength * duration * (1 - morale_scaling(moral)) * logistic_scaling(logi) * commander_scaling(cmd)
     for system, share in weapons.items():
-        system_eff = (share / total_share) * ew_enemy if total_share > 0 else 0
+        system_eff = (share / total_share) * ew_enemy
         base = base_rate * system_eff * modifier * medical_scaling(med, moral) * commander_scaling(cmd)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
@@ -107,7 +110,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         total[system] = (round(daily_min * duration), round(daily_max * duration))
     return results, total
 
-# Plot Functions
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
     chart_data = pd.DataFrame({
@@ -116,27 +118,26 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
         "Max": [v[1] for v in cumulative_range.values()]
     })
     chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
+    chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
 
     chart = alt.Chart(chart_data).mark_bar().encode(
         x=alt.X('Weapon System:N', title='System'),
-        y=alt.Y('Min:Q', title='Min Casualties'),
-        y2='Max:Q',
+        y=alt.Y('Min:Q', title='Casualty Range Start'),
+        y2=alt.Y2('Max End:Q'),
         tooltip=['Weapon System', 'Min', 'Max']
     ).properties(width=600, height=400)
     st.altair_chart(chart, use_container_width=True)
 
-    # Line curve
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
         "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
     })
-    line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line().encode(
+    line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line(interpolate='monotone').encode(
         x='Days:Q', y=alt.Y('value:Q', title="Cumulative Casualties"), color='key:N'
     ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
     st.altair_chart(line_chart, use_container_width=True)
 
-# Display Force
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(
@@ -161,19 +162,17 @@ st.markdown("---")
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
 
-# Benchmark Table
-st.markdown("""
-### Historical Conflict Benchmarks
-| Conflict | Duration (days) | Casualties | Alignment |
-|----------|------------------|------------|-----------|
-| Verdun (WWI) | 300 | ~700,000 | Matches artillery attrition |
-| Eastern Front (WWII) | 1410 | ~6M | Aligned with extended high-intensity |
-| Vietnam War | 5475 | ~1.1M | Attrition and morale degradation |
-| Korean War | 1128 | ~1.2M | High ground combat and seasonal intensity |
-| Iran–Iraq War | 2920 | ~1M+ | Prolonged trench, chemical, artillery attrition |
-| Iraq War | 2920 | ~400–650K | Urban + airstrike dynamics |
-| Russo-Ukrainian | 1031+ | ~500–800K | Validated with modern warfare factors |
-""")
+with st.expander("Historical Conflict Benchmarks"):
+    st.markdown("""
+    | Conflict | Duration (days) | Casualties | Alignment |
+    |----------|------------------|------------|-----------|
+    | Verdun (WWI) | 300 | ~700,000 | Matches artillery attrition |
+    | Eastern Front (WWII) | 1410 | ~6M | Aligned with extended high-intensity |
+    | Vietnam War | 5475 | ~1.1M | Attrition and morale degradation |
+    | Korean War | 1128 | ~1.2M | High ground combat and seasonal intensity |
+    | Iran–Iraq War | 2920 | ~1M+ | Prolonged trench, chemical, artillery attrition |
+    | Iraq War | 2920 | ~400–650K | Urban + airstrike dynamics |
+    | Russo-Ukrainian | 1031+ | ~500–800K | Validated with modern warfare factors |
+    """)
 
-# Footer
-st.markdown("""---\n**Credits:** Strategic modeling by Infinity Fabric LLC.""")
+st.markdown("---\n**Credits:** Strategic modeling by Infinity Fabric LLC.")
