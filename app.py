@@ -120,22 +120,34 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
     chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
 
-    chart = alt.Chart(chart_data).mark_bar().encode(
+    base = alt.Chart(chart_data).mark_bar(size=25, color="#bbbbbb").encode(
         x=alt.X('Weapon System:N', title='System'),
-        y=alt.Y('Min:Q', title='Casualty Range Start'),
-        y2=alt.Y2('Max End:Q'),
+        y=alt.Y('Min:Q', title='Min Casualties')
+    )
+
+    delta = alt.Chart(chart_data).mark_bar(size=25, color="#1f77b4").encode(
+        x='Weapon System:N',
+        y='Min:Q',
+        y2='Max End:Q',
         tooltip=['Weapon System', 'Min', 'Max']
-    ).properties(width=600, height=400)
-    st.altair_chart(chart, use_container_width=True)
+    )
+
+    st.altair_chart(base + delta, use_container_width=True)
 
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
         "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
     })
-    line_chart = alt.Chart(line_data).transform_fold(["Min", "Max"]).mark_line(interpolate='monotone').encode(
-        x='Days:Q', y=alt.Y('value:Q', title="Cumulative Casualties"), color='key:N'
+
+    line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
+
+    line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
+        x='Days:Q',
+        y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
+        color='Type:N'
     ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
+
     st.altair_chart(line_chart, use_container_width=True)
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
