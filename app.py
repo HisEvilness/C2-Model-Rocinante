@@ -95,7 +95,7 @@ def calculate_modifier(exp, moral, logi):
     return exp * morale_scaling(moral) * logistic_scaling(logi)
 
 def decay_curve_factor(moral, logi, cmd):
-    return 0.55 + (1 - morale_scaling(moral)) * 0.15 + (1 - logistic_scaling(logi)) * 0.1 + (1 - commander_scaling(cmd)) * 0.1
+    return 11.85 + (1 - morale_scaling(moral)) * 0.15 + (1 - logistic_scaling(logi)) * 0.1 + (1 - commander_scaling(cmd)) * 0.1
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral):
     results = {}
