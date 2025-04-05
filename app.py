@@ -104,7 +104,7 @@ def dynamic_decay_exponent(moral, med, logi, cmd, exp, ew, enemy_exp, enemy_ew, 
     enemy_advantage = (enemy_exp * enemy_ew) / max((exp * ew), 0.01)
     return 1 + alpha * (1 - avg_mod) + beta * (enemy_advantage - 1)
 
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, decay_strength=0.00035):
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, decay_strength=0.00035):
     results = {}
     total = {}
     total_share = sum(weapons.values())
@@ -117,7 +117,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         daily_max = daily_base * 1.05
         cumulative_min = daily_min * duration
         cumulative_max = daily_max * duration
-        results[system] = (round(daily_base, 1), round(daily_max - daily_base, 1))
+        results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(cumulative_min), round(cumulative_max))
     return results, total
 
