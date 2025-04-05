@@ -71,7 +71,16 @@ intensity_map = {
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Weapon Weights
+share_values = {
+    "Artillery": 0.70,
+    "Drones": 0.10,
+    "Snipers": 0.02,
+    "Small Arms": 0.05,
+    "Heavy Weapons": 0.05,
+    "Armored Vehicles": 0.10,
+    "Air Strikes": 0.05
+}
+
 weapons = {
     "Artillery": share_values["Artillery"] if artillery_on else 0.0,
     "Drones": share_values["Drones"] if drones_on else 0.0,
@@ -82,7 +91,7 @@ weapons = {
     "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
 }
 
-weapons = {k: (v if eval(k.lower().replace(" ", "_") + "_on") else 0.0) for k, v in share_values.items()}
+
 total_share = sum(weapons.values())
 
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
