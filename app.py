@@ -16,11 +16,6 @@ Casualty and degradation calculations are based on:
 - Morale and logistics impact on operational performance
 - Real-world experience scaling and asymmetric equipment availability
 
-#### Notes on Force Disparity:
-- 🇷🇺 Russian artillery and EW dominance gives them a tactical advantage
-- 🇺🇦 Ukrainian drone usage is heavily impacted by Russian EW
-- 🇺🇦 suffers long-term degradation due to rotating conscripts and veteran losses
-
 > This simulation aligns with validated AI predictions and 25+ historical conflicts for casualty realism.
 """)
 
@@ -54,6 +49,19 @@ with st.sidebar:
     heavy_on = st.checkbox("Include Heavy Weapons", True)
     armor_on = st.checkbox("Include Armored Vehicles", True)
     airstrikes_on = st.checkbox("Include Air Strikes", True)
+
+    st.subheader("ISR Coordination")
+    s2s_rus = st.slider("🇷🇺 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.85, 0.01)
+    s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.70, 0.01)
+
+    st.subheader("Air Defense & EW")
+    ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
+    ew_cover_rus = st.slider("🇷🇺 EW Coverage", 0.0, 1.0, 0.75, 0.01)
+    ad_ready_rus = st.slider("🇷🇺 AD Readiness", 0.0, 1.0, 0.90, 0.01)
+
+    ad_density_ukr = st.slider("🇺🇦 AD Density", 0.0, 1.0, 0.60, 0.01)
+    ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
+    ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
 # Weapon shares
 share_values = {
@@ -108,20 +116,31 @@ def calculate_modifier(exp, moral, logi):
     commander_influence = 1 + 0.05 * (logi_effect - 1)
     return exp * morale_scaling(moral) * commander_influence
 
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi):
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready):
     results, total = {}, {}
+    
+    # Existing decay mechanics
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_scaling(moral)) * commander_scaling(cmd, duration))
+    morale_decay = 1 + 0.8 * math.tanh(2 * (moral - 1))
+    commander_factor = 1 / (1 + 0.3 * cmd)
+    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_decay) * commander_factor)
+
+    # AD/EW modifiers
+    ad_modifier = 1 - ad_density * ad_ready
+    ew_modifier = 1 - ew_cover
+    coordination_bonus = s2s
+
     for system, share in weapons.items():
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
+
+        # Adjust weapon system effectiveness
         weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.05)
-        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
         commander_bonus = 1 + 0.04 * cmd
         enemy_cmd_suppression = 1 - 0.04 * cmd_factor
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
-        # Dynamic weapon-type scaling
+        # Dynamic system scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -130,61 +149,32 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        
+        # EW adjustments
+        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
+
+        # Drone penalty from enemy AD/EW
+        drone_penalty = 1.0
+        if system in ["Drones", "Air Strikes"]:
+            drone_penalty = ad_modifier * ew_modifier
+
         base_share = share / total_share
-        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus * drone_penalty
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
+
     return results, total
 
-def plot_casualty_chart(title, daily_range, cumulative_range):
-    st.subheader(f"{title} Casualty Distribution")
-    chart_data = pd.DataFrame({
-        "Weapon System": list(daily_range.keys()),
-        "Min": [v[0] for v in cumulative_range.values()],
-        "Max": [v[1] for v in cumulative_range.values()]
-    })
-    chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
-    chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
 
-    base = alt.Chart(chart_data).mark_bar(size=25, color="#bbbbbb").encode(
-        x=alt.X('Weapon System:N', title='System'),
-        y=alt.Y('Min:Q', title='Min Casualties')
-    )
-
-    delta = alt.Chart(chart_data).mark_bar(size=25, color="#1f77b4").encode(
-        x='Weapon System:N',
-        y='Min:Q',
-        y2='Max End:Q',
-        tooltip=['Weapon System', 'Min', 'Max']
-    )
-
-    st.altair_chart(base + delta, use_container_width=True)
-
-    line_data = pd.DataFrame({
-        "Days": list(range(0, duration_days + 1, 7)),
-        "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
-        "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
-    })
-
-    line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
-
-    line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
-        x='Days:Q',
-        y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
-        color='Type:N'
-    ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
-
-    st.altair_chart(line_chart, use_container_width=True)
-
-def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew):
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew, s2s, ad_density, ew_cover, ad_ready):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(
-        base, modifier, duration, ew_enemy, med, cmd, moral, logi
+        base, modifier, duration, ew_enemy, med, cmd, moral, logi,
+        s2s, ad_density, ew_cover, ad_ready
     )
+
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -197,12 +187,17 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
-    plot_casualty_chart(name, daily_range, cumulative_range)
+    st.metric("Sensor-to-Shooter Coordination", f"{s2s:.2f}")
+    st.metric("Air Defense Strength", f"{ad_density * ad_ready:.2f}")
+    st.metric("EW Denial Coverage", f"{ew_cover:.2f}")
 
 # Outputs
 st.markdown("---")
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days, exp_ukr, ew_rus)
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr)
+display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus,
+              duration_days, exp_ukr, ew_rus, s2s_rus, ad_density_ukr, ew_cover_ukr, ad_ready_ukr)
+
+display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr,
+              duration_days, exp_rus, ew_ukr, s2s_ukr, ad_density_rus, ew_cover_rus, ad_ready_rus)
 
 with st.expander("Historical Conflict Benchmarks"):
     st.markdown("""
