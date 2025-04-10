@@ -1,7 +1,14 @@
+
 import streamlit as st
 import pandas as pd
 import math
 import altair as alt
+
+def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
+def logistic_scaling(l): return 0.5 + 0.5 * l
+def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
+
 
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
@@ -19,13 +26,18 @@ Casualty and degradation calculations are based on:
 > This simulation aligns with validated AI predictions and 25+ historical conflicts for casualty realism.
 """)
 
+# Utility Functions
+def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
+def logistic_scaling(l): return 0.5 + 0.5 * l
+def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
+
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
     duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
     intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
 
-    # Russian Modifiers
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.15, step=0.01)
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
@@ -34,7 +46,6 @@ with st.sidebar:
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.2, step=0.01)
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
-    # Ukrainian Modifiers
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
@@ -43,7 +54,6 @@ with st.sidebar:
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
 
-    # Environmental Settings
     st.subheader("Environment & Weapon Systems")
     artillery_on = st.checkbox("Include Artillery", True)
     drones_on = st.checkbox("Include Drones", True)
@@ -53,31 +63,28 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", True)
     airstrikes_on = st.checkbox("Include Air Strikes", True)
 
-    # ISR Coordination
     st.subheader("ISR Coordination")
     s2s_rus = st.slider("🇷🇺 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.85, 0.01)
     s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.65, 0.01)
 
-    # Air Defense & EW
     st.subheader("Air Defense & EW")
     ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
     ew_cover_rus = st.slider("🇷🇺 EW Coverage", 0.0, 1.0, 0.75, 0.01)
     ad_ready_rus = st.slider("🇷🇺 AD Readiness", 0.0, 1.0, 0.90, 0.01)
-
     ad_density_ukr = st.slider("🇺🇦 AD Density", 0.0, 1.0, 0.60, 0.01)
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
-    # Force Composition
     st.subheader("Force Composition")
     composition_options = ["VDV", "Armored", "Infantry", "Mechanized", "Artillery", "CAS Air", "FPV Teams", "EW Units"]
     composition_rus = st.multiselect("🇷🇺 Russian Composition", composition_options, default=composition_options)
     composition_ukr = st.multiselect("🇺🇦 Ukrainian Composition", composition_options, default=composition_options)
 
-    # Force Posture
     st.subheader("Force Posture")
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
+
+
 # === Force Composition Stats ===
 composition_stats = {
     "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.3},
@@ -129,6 +136,8 @@ intensity_map = {
 base_rus, base_ukr = intensity_map[intensity_level]
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
+
+
 
 # === Weapon Shares ===
 share_values = {
@@ -199,6 +208,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
     return results, total
 
+
+
 # === Plotting Function ===
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
@@ -267,6 +278,8 @@ display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_r
 
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr)
+
+
 
 # === Historical Conflict Benchmarks & Comparison ===
 st.markdown("""---""")
