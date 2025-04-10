@@ -157,9 +157,28 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         if system in ["Drones", "Air Strikes"]:
             drone_penalty = ad_modifier * ew_modifier
 
-        base_share = share / total_share
-        coordination_bonus = min(max(s2s, 0.85), 1.15)
-        drone_penalty = min(max(drone_penalty, 0.75), 1.15)
+base_share = share / total_share
+commander_bonus = 1 + 0.04 * cmd
+enemy_cmd_suppression = 1 - 0.04 * commander_scaling(cmd, duration)
+dynamic_factor = commander_bonus * enemy_cmd_suppression
+
+# Coordination limited to indirect systems only
+if system in ["Artillery", "Air Strikes", "Drones"]:
+    coordination_bonus = min(max(s2s, 0.85), 1.10)
+else:
+    coordination_bonus = 1.0
+
+# Only apply drone_penalty if drones or airstrikes
+if system in ["Drones", "Air Strikes"]:
+    drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05)
+else:
+    drone_penalty = 1.0
+
+# Layered combination — NO overstack
+system_eff = base_share * ew_enemy * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
+system_eff *= drone_penalty
+system_eff = max(system_eff, 0.35)
+
 
         system_eff = base_share * ew_enemy * weapon_boost * system_scaling
         system_eff *= (0.5 + 0.5 * dynamic_factor) * coordination_bonus * drone_penalty
