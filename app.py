@@ -126,13 +126,11 @@ def draw_force_readiness_bar(s2s, ad_strength, ew_denial):
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready):
     results, total = {}, {}
 
-    # Independent commander effect
     def commander_scaling(value): return 1 + 0.10 * math.tanh(3 * value)
 
-    # Exponential decay — stronger units decay slower
-    decay_strength = 0.00025 + 0.00008 * math.tanh(duration / 700)
+    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
     base_resistance = morale_scaling(moral) * logistic_scaling(logi)
-    decay_curve_factor = math.exp(-decay_strength * duration / base_resistance)
+    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
 
     ad_modifier = 1 - ad_density * ad_ready
     ew_modifier = 1 - ew_cover
@@ -141,7 +139,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base_share = share / total_share
         logi_factor = logistic_scaling(logi)
         cmd_bonus = commander_scaling(cmd)
-        enemy_cmd_suppress = 1 - 0.08 * math.tanh(3 * 0.25)  # assume avg enemy cmd
+        enemy_cmd_suppress = 1 - 0.08 * math.tanh(3 * 0.25)
 
         weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * (1 / cmd_bonus), 0.95), 1.08)
 
@@ -152,9 +150,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
             system_scaling = 0.65 * drone_decay
         else:
             system_scaling = 1.0
-
-        if system == "Air Strikes":
-            system_eff *= (1 + 0.15 * s2s)
 
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
@@ -167,10 +162,14 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
 
-        casualty_suppression = 1 - (0.05 + 0.05 * cmd)  # commander reduces end result
+        casualty_suppression = 1 - (0.05 + 0.05 * cmd)
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi) * casualty_suppression
         daily_base = base * decay_curve_factor
-        daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
+
+        # ✅ FIXED: per-system daily min/max
+        daily_min = daily_base * 0.95
+        daily_max = daily_base * 1.05
+
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
 
