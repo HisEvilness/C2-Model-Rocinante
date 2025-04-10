@@ -74,19 +74,25 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
+    st.subheader("Force Composition")
+
+    composition_options = [
+        "VDV", "Armored", "Mechanized", "Artillery", "CAS Air", "Engineer Units", "National Guard",
+        "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams",
+        "Infantry", "Territorial Defense", "Reservists", "Drone Units", "FPV Teams", "Foreign Legion"
+    ]
+
+    composition_rus = st.multiselect(
+        "🇷🇺 Russian Composition", composition_options,
+        default=["VDV", "Mechanized", "Artillery", "EW Units", "Engineer Units", "SOF"]
+    )
+    composition_ukr = st.multiselect(
+        "🇺🇦 Ukrainian Composition", composition_options,
+        default=["Infantry", "Territorial Defense", "FPV Teams", "Drone Units", "Artillery", "Foreign Legion"]
+    )
+
     st.subheader("Casualty Type Settings")
     kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.30, step=0.01)
-
-    st.subheader("Force Composition")
-    composition_rus = st.multiselect(
-    "🇷🇺 Russian Composition", composition_options,
-    default=["VDV", "Mechanized", "Artillery", "EW Units", "Engineer Units", "SOF"]
-    )
-
-    composition_ukr = st.multiselect(
-    "🇺🇦 Ukrainian Composition", composition_options,
-    default=["Infantry", "Territorial Defense", "FPV Teams", "Drone Units", "Artillery", "Foreign Legion"]
-    )
 
 # === Force Composition Stats ===
 composition_stats = {
