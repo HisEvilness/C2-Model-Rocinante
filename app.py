@@ -103,7 +103,7 @@ with st.sidebar:
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
 
     st.subheader("Casualty Type Settings")
-    kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.30, step=0.01)
+    kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.45, step=0.01)
 
 # === Force Composition Stats ===
 composition_stats = {
