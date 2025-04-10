@@ -63,10 +63,25 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
-# Weapon shares
+# Placeholder for full logic implementation (to be appended)
+
+st.success("UI fully loaded. Calculation engine ready to be injected.")
+
+
+
+# Utility scaling functions
+def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
+def logistic_scaling(l): return 0.5 + 0.5 * l
+def medical_scaling(med, morale, logi):
+    logistics_penalty = 1 + 0.2 * (1 - logistic_scaling(logi)) if logistic_scaling(logi) < 1 else 1 + 0.1 * (logistic_scaling(logi) - 1)
+    return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1)) * logistics_penalty
+def commander_scaling(cmd, duration): return 1 / (1 + 0.3 * cmd)
+def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
+
+# Weapon configuration
 share_values = {
     "Artillery": 0.70,
-    "Drones": 0.13,
+    "Drones": 0.10,
     "Snipers": 0.02,
     "Small Arms": 0.05,
     "Heavy Weapons": 0.05,
@@ -84,48 +99,37 @@ weapons = {
 }
 total_share = sum(weapons.values())
 
-if total_share == 0:
-    st.warning("Please enable at least one weapon system to view casualty estimates.")
-    st.stop()
-
-# Intensity Mapping
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
-    3: (110, 1400),
+    3: (120, 1500),
     4: (160, 2500),
     5: (200, 3500)
 }
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Modifiers
+# Visual force readiness summary
+def draw_force_readiness_bar(s2s, ad_strength, ew_denial):
+    bar_data = pd.DataFrame({
+        'Metric': ['Sensor-to-Shooter', 'Air Defense Strength', 'EW Denial Coverage'],
+        'Value': [s2s, ad_strength, ew_denial]
+    })
+    chart = alt.Chart(bar_data).mark_bar().encode(
+        x=alt.X('Value:Q', scale=alt.Scale(domain=[0, 1]), title='Level'),
+        y=alt.Y('Metric:N', sort='-x'),
+        color=alt.Color('Metric:N', legend=None),
+        tooltip=['Metric', 'Value']
+    ).properties(width=400, height=120, title='Force Integration Levels')
+    st.altair_chart(chart, use_container_width=True)
 
-# Global morale decay factor
-morale_decay_factor = 1 - 0.05 * math.tanh(duration_days / 1000)
-
-def morale_scaling(m):
-    return 1 + 0.8 * math.tanh(2 * (m - 1))
-def logistic_scaling(l): return 0.5 + 0.5 * l
-def medical_scaling(med, morale, logi):
-    logistics_penalty = 1 + 0.2 * (1 - logistic_scaling(logi)) if logistic_scaling(logi) < 1 else 1 + 0.1 * (logistic_scaling(logi) - 1)
-    return (1 + (1 - med) ** 1.3) * logistics_penalty
-def commander_scaling(cmd, duration):
-    return 1 / (1 + 0.3 * cmd)  # Restored moderate scaling  # Slightly increased impact
-def calculate_modifier(exp, moral, logi):
-    logi_effect = logistic_scaling(logi)
-    commander_influence = 1 + 0.05 * (logi_effect - 1)
-    return exp * morale_scaling(moral) * commander_influence
-
+# Main calculation logic
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready):
     results, total = {}, {}
 
-    # Core decay logic
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    morale_decay = 1 + 0.8 * math.tanh(2 * (moral - 1))
-    commander_factor = 1 / (1 + 0.3 * cmd)
-    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_decay) * commander_factor)
+    morale_decay = morale_scaling(moral)
+    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_decay) * commander_scaling(cmd, duration))
 
-    # AD/EW logic
     ad_modifier = 1 - ad_density * ad_ready
     ew_modifier = 1 - ew_cover
 
@@ -134,10 +138,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
 
-        # Weapon boost from logistics + command
         weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.05)
 
-        # System-specific scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -146,26 +148,19 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        # EW effectiveness on system
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
-        # Commander coordination
         commander_bonus = 1 + 0.04 * cmd
         enemy_cmd_suppression = 1 - 0.04 * cmd_factor
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
-        # ISR coordination for indirect systems only
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-
-        # Drone penalty due to AD/EW defenses
         drone_penalty = min(max(ad_modifier * ew_modifier, 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-        # Combined effectiveness
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
 
-        # Final casualty computation
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
@@ -174,13 +169,13 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
     return results, total
 
+# Output display
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew, s2s, ad_density, ew_cover, ad_ready):
     modifier = calculate_modifier(exp, moral, logi)
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_density, ew_cover, ad_ready
     )
-
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -192,13 +187,19 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.dataframe(df)
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
-    st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
-    st.metric("Sensor-to-Shooter Coordination", f"{s2s:.2f}")
-    st.metric("Air Defense Strength", f"{ad_density * ad_ready:.2f}")
-    st.metric("EW Denial Coverage", f"{ew_cover:.2f}")
 
-# Outputs
-st.markdown("---")
+    st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
+
+    # KIA/WIA Estimates
+    kia_estimate = int(total_min * 0.22), int(total_max * 0.25)
+    wia_estimate = int(total_min * 0.78), int(total_max * 0.75)
+    st.markdown(f"**Estimated KIA (Range):** {kia_estimate[0]:,} – {kia_estimate[1]:,}")
+    st.markdown(f"**Estimated WIA (Range):** {wia_estimate[0]:,} – {wia_estimate[1]:,}")
+
+    # Integration visual bar
+    draw_force_readiness_bar(s2s, ad_density * ad_ready, ew_cover)
+
+# Final outputs
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus,
               duration_days, exp_ukr, ew_rus, s2s_rus, ad_density_ukr, ew_cover_ukr, ad_ready_ukr)
 
