@@ -9,7 +9,7 @@ st.markdown("""
 This dashboard estimates cumulative casualty outcomes using a validated conflict model.
 
 ### Core Model: How It Works
-Casualty and degradation calculations are based on:
+Causality and degradation calculations are based on:
 - Artillery usage (70–90% of losses in conventional war)
 - Drone warfare and air strikes adjusted for EW effects
 - Commander efficiency and leadership survivability bonuses
@@ -118,13 +118,54 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
-ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
+    ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
     st.subheader("Force Composition")
     composition_options = ["VDV", "Armored", "Infantry", "Mechanized", "Artillery", "CAS Air", "FPV Teams", "EW Units"]
     composition_rus = st.multiselect("🇷🇺 Russian Composition", composition_options, default=composition_options)
     composition_ukr = st.multiselect("🇺🇦 Ukrainian Composition", composition_options, default=composition_options)
 
+    # === Force Composition Definitions ===
+composition_stats = {
+    "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.3},
+    "Armored": {"cohesion": 1.1, "weapons": 1.25, "training": 1.1},
+    "Infantry": {"cohesion": 0.9, "weapons": 0.8, "training": 0.85},
+    "Mechanized": {"cohesion": 1.05, "weapons": 1.15, "training": 1.0},
+    "Artillery": {"cohesion": 1.1, "weapons": 1.3, "training": 1.0},
+    "CAS Air": {"cohesion": 1.0, "weapons": 1.2, "training": 1.05},
+    "FPV Teams": {"cohesion": 0.95, "weapons": 1.1, "training": 1.05},
+    "EW Units": {"cohesion": 1.1, "weapons": 1.0, "training": 1.1}
+}
+
+def aggregate_composition(selection):
+    if not selection:
+        return 1.0, 1.0, 1.0
+    c_sum, w_sum, t_sum = 0, 0, 0
+    for unit in selection:
+        stats = composition_stats.get(unit, {})
+        c_sum += stats.get("cohesion", 1)
+        w_sum += stats.get("weapons", 1)
+        t_sum += stats.get("training", 1)
+    n = len(selection)
+    return c_sum / n, w_sum / n, t_sum / n
+
+coh_rus, weap_rus, train_rus = aggregate_composition(composition_rus)
+coh_ukr, weap_ukr, train_ukr = aggregate_composition(composition_ukr)
+
+def force_resilience(moral, logi, cmd, cohesion, training):
+    return morale_scaling(moral) * logistic_scaling(logi) * (1 + 0.2 * cmd) * cohesion * training
+
+res_rus = force_resilience(moral_rus, logi_rus, cmd_rus, coh_rus, train_rus)
+res_ukr = force_resilience(moral_ukr, logi_ukr, cmd_ukr, coh_ukr, train_ukr)
+
+def adjusted_posture(posture, resilience, baseline=1.0):
+    offset = posture - 1.0
+    impact = offset * (1 - baseline / resilience)
+    return 1 + 0.25 * math.tanh(3 * impact)
+
+posture_rus_adj = adjusted_posture(posture_rus, res_rus)
+posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
+    
     st.subheader("Force Posture")
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
@@ -204,6 +245,48 @@ total_share = sum(weapons.values())
 if total_share == 0:
     st.warning("Please enable at least one weapon system to view casualty estimates.")
     st.stop()
+
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
+                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
+    results, total = {}, {}
+
+    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
+    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+
+    for system, share in weapons.items():
+        base_share = share / total_share
+        logi_factor = logistic_scaling(logi)
+        cmd_factor = commander_scaling(cmd)
+        weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
+
+        if system == "Artillery":
+            system_scaling = logistic_scaling(logi) * 0.95
+        elif system == "Drones":
+            drone_decay = max(0.9, 1 - 0.0002 * duration)
+            system_scaling = 0.65 * drone_decay
+        else:
+            system_scaling = 1.0
+
+        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
+        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
+        drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
+
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
+        system_eff *= weap_quality
+        system_eff = max(system_eff, 0.35)
+
+        suppression = 1 - (0.05 + 0.05 * cmd)
+        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * suppression
+        daily_base = base * decay_curve_factor
+
+        daily_min = daily_base * 0.95
+        daily_max = daily_base * 1.05
+
+        results[system] = (round(daily_min, 1), round(daily_max, 1))
+        total[system] = (round(daily_min * duration), round(daily_max * duration))
+
+    return results, total
 
 # Plotting Function
 def plot_casualty_chart(title, daily_range, cumulative_range):
