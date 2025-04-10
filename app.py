@@ -254,60 +254,59 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 from collections import OrderedDict
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
-                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training,
-                                weapons):
+                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training, weapons):
     results, total = {}, {}
     total_share = sum(weapons.values())
-
     if total_share == 0:
-        st.warning("No active weapon systems. Please enable at least one.")
+        st.warning("No weapon systems enabled.")
         return {}, {}
 
+    # Decay over time — posture/logi/morale balanced
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
-    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+    resilience = logistic_scaling(logi) * morale_scaling(moral) * training
+    decay_curve_factor = max(math.exp(-decay_strength * duration / resilience), 0.6)
 
     for system, share in weapons.items():
         if share == 0:
             continue
 
+        # Normalize weapon contribution
         base_share = share / total_share
-        logi_factor = logistic_scaling(logi)
-        cmd_factor = commander_scaling(cmd)
-        weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
 
+        # Moderate per-system scaling (fixed values preferred)
         if system == "Artillery":
-            system_scaling = logistic_scaling(logi) * 0.95
+            system_scaling = 1.0 * logistic_scaling(logi)
         elif system == "Drones":
             drone_decay = max(0.9, 1 - 0.0002 * duration)
             system_scaling = 0.65 * drone_decay
+        elif system == "Air Strikes":
+            system_scaling = 1.1
         else:
             system_scaling = 1.0
 
-        ew_multiplier = 1.0 if system == "Air Strikes" else (0.75 if system == "Drones" else 1.0)
-        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-        drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
+        # Simplified EW / AD suppression for drones & airstrikes
+        ew_multiplier = 1.0 if system not in ["Drones", "Air Strikes"] else (1 - 0.3 * ew_cover)
+        ad_penalty = 1.0 if system not in ["Drones", "Air Strikes"] else (1 - 0.3 * ad_density * ad_ready)
+        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Drones", "Air Strikes"] else 1.0
 
-        # Raw stacking of multipliers
-        raw_eff = ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty * weap_quality
+        # Combined system effectiveness with gentle modifiers
+        system_eff = system_scaling * ew_multiplier * ad_penalty * coordination_bonus * weap_quality
+        system_eff = max(min(system_eff, 1.5), 0.35)
 
-        # Normalize it with a soft cap (log-based damping)
-        system_eff = 1 + 0.5 * math.tanh(raw_eff - 1)
-        system_eff = max(system_eff, 0.35)
+        # Commander reduces own losses (suppression factor)
+        suppression = 1 - (0.04 + 0.06 * cmd)
 
-        suppression = 1 - (0.05 + 0.05 * cmd)
-        base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral) * suppression
+        # Medical factor (reduced deaths from same hits)
+        med_factor = (1 + (1 - med) ** 1.2) * (1 + 0.1 * (morale_scaling(moral) - 1))
 
+        # Core daily base
+        base = base_rate * base_share * system_eff * modifier * med_factor * suppression
         daily_base = base * decay_curve_factor
-        daily_min = daily_base * 0.95
-        daily_max = daily_base * 1.05
 
-        # Final realism correction: prevents excessive overshoot
-        scaling_factor = 0.85 if base_rate > 100 else 0.95
-        daily_min *= scaling_factor
-        daily_max *= scaling_factor
+        daily_min = round(daily_base * 0.95, 1)
+        daily_max = round(daily_base * 1.05, 1)
 
-        results[system] = (round(daily_min, 1), round(daily_max, 1))
+        results[system] = (daily_min, daily_max)
         total[system] = (round(daily_min * duration), round(daily_max * duration))
 
     return results, total
