@@ -170,7 +170,6 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
     adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
     return min(max(adjusted, 0.15), 0.75)
 
-
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
