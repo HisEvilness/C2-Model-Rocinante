@@ -374,10 +374,10 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
     daily_range, cumulative_range = calculate_casualties_range(
-         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-         s2s, ad_dens, ew_cov, ad_ready, weap_q, train,
-         weapons_dict=weapons
-         )
+    base, modifier, duration, ew_enemy, med, cmd, moral, logi,
+    s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
+    )
+
 
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
