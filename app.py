@@ -203,16 +203,18 @@ composition_options = [
     
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+    # Clamp values to realistic ranges
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
 
-    medical_penalty = (1 - med) ** 1.2
-    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
-    commander_bonus = cmd * 0.3
+    # Core logic
+    med_penalty = (1.0 - med) * 0.6       # Reduced from power function
+    logi_penalty = (1.5 - logi) * 0.4      # Lower sensitivity
+    cmd_bonus = cmd * 0.4                  # Buffed slightly
 
-    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
-    return min(max(adjusted, 0.15), 0.75)
+    adjusted = base_ratio + med_penalty + logi_penalty - cmd_bonus
+    return min(max(adjusted, 0.22), 0.55)  # Keep within realistic wartime bounds
 
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
