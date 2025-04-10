@@ -151,19 +151,19 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         commander_bonus = 1 + 0.08 * math.tanh(3 * cmd)
         enemy_cmd_suppression = 1 - 0.06 * math.tanh(3 * cmd_factor)
         dynamic_factor = commander_bonus * enemy_cmd_suppression
-
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
+
         # Stronger compound penalty from well-layered AD/EW
         raw_penalty = ad_modifier * ew_modifier
-        penalty_factor = 1 - (1 - raw_penalty) ** 1.5  # nonlinear suppression
+        penalty_factor = 1 - (1 - raw_penalty) ** 1.5 
         drone_penalty = min(max(penalty_factor, 0.65), 1.05)
-
 
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
         casualty_suppression = 1 - (0.05 + 0.05 * cmd)
 
+        casualty_suppression = 1 - (0.05 + 0.05 * cmd)
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi) * casualty_suppression
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
