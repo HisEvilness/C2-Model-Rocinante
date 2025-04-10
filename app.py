@@ -80,13 +80,13 @@ def calculate_modifier(exp, moral, logi):
 
 # Weapon configuration
 share_values = {
-    "Artillery": 0.70,
+    "Artillery": 0.63,
     "Drones": 0.10,
-    "Snipers": 0.02,
+    "Snipers": 0.01,
     "Small Arms": 0.05,
-    "Heavy Weapons": 0.05,
-    "Armored Vehicles": 0.10,
-    "Air Strikes": 0.05
+    "Heavy Weapons": 0.04,
+    "Armored Vehicles": 0.07,
+    "Air Strikes": 0.10
 }
 weapons = {
     "Artillery": share_values["Artillery"] if artillery_on else 0.0,
@@ -152,6 +152,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
             system_scaling = 0.65 * drone_decay
         else:
             system_scaling = 1.0
+
+        if system == "Air Strikes":
+            system_eff *= (1 + 0.15 * s2s)
 
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
