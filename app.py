@@ -197,7 +197,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff = max(system_eff, 0.35)
 
         suppression = 1 - (0.05 + 0.05 * cmd)
-        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * suppression
+        base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral) * suppression
         daily_base = base * decay_curve_factor
 
         daily_min = daily_base * 0.95
