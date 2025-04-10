@@ -275,14 +275,15 @@ def plot_daily_curve(title, daily_range, duration):
 
     st.altair_chart(chart, use_container_width=True)
 
-# === Display Function ===
+# === Display Function with KIA/WIA, Debug and Dual Charting ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready, weap_q, train
     )
+
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -292,6 +293,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
+
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
     kia_min = round(total_min * kia_ratio)
@@ -302,6 +304,10 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
+
+    # Debug Output (Optional)
+    st.write("Daily Range", daily_range)
+    st.write("Cumulative Range", cumulative_range)
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
