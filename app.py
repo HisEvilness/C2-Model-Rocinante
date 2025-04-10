@@ -118,29 +118,23 @@ def calculate_modifier(exp, moral, logi):
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready):
     results, total = {}, {}
-    
-    # Existing decay mechanics
+
+    # Core decay logic
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
     morale_decay = 1 + 0.8 * math.tanh(2 * (moral - 1))
     commander_factor = 1 / (1 + 0.3 * cmd)
     decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_decay) * commander_factor)
 
-    # AD/EW modifiers
+    # AD/EW logic
     ad_modifier = 1 - ad_density * ad_ready
     ew_modifier = 1 - ew_cover
-    coordination_bonus = s2s
 
     for system, share in weapons.items():
+        base_share = share / total_share
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
 
-        # Adjust weapon system effectiveness
-        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.05)
-        commander_bonus = 1 + 0.04 * cmd
-        enemy_cmd_suppression = 1 - 0.04 * cmd_factor
-        dynamic_factor = commander_bonus * enemy_cmd_suppression
-
-        # Dynamic system scaling
+        # Base system scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -149,41 +143,26 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        # EW adjustments
+        # EW scaling
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
-                # Drone penalty from enemy AD/EW
-        drone_penalty = 1.0
-        if system in ["Drones", "Air Strikes"]:
-            drone_penalty = ad_modifier * ew_modifier
+        # Commander effect
+        commander_bonus = 1 + 0.04 * cmd
+        enemy_cmd_suppression = 1 - 0.04 * cmd_factor
+        dynamic_factor = commander_bonus * enemy_cmd_suppression
 
-base_share = share / total_share
-commander_bonus = 1 + 0.04 * cmd
-enemy_cmd_suppression = 1 - 0.04 * commander_scaling(cmd, duration)
-dynamic_factor = commander_bonus * enemy_cmd_suppression
+        # Coordination bonus only for indirect fires
+        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
-# Coordination limited to indirect systems only
-if system in ["Artillery", "Air Strikes", "Drones"]:
-    coordination_bonus = min(max(s2s, 0.85), 1.10)
-else:
-    coordination_bonus = 1.0
+        # Drone penalty only applied if relevant
+        drone_penalty = min(max(ad_modifier * ew_modifier, 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-# Only apply drone_penalty if drones or airstrikes
-if system in ["Drones", "Air Strikes"]:
-    drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05)
-else:
-    drone_penalty = 1.0
+        # Final effectiveness calculation
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
+        system_eff *= drone_penalty
+        system_eff = max(system_eff, 0.35)
 
-# Layered combination — NO overstack
-system_eff = base_share * ew_enemy * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
-system_eff *= drone_penalty
-system_eff = max(system_eff, 0.35)
-
-
-        system_eff = base_share * ew_enemy * weapon_boost * system_scaling
-        system_eff *= (0.5 + 0.5 * dynamic_factor) * coordination_bonus * drone_penalty
-        system_eff = max(system_eff, 0.35)  # floor to prevent collapse
-
+        # Casualty computation
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
@@ -191,7 +170,6 @@ system_eff = max(system_eff, 0.35)
         total[system] = (round(daily_min * duration), round(daily_max * duration))
 
     return results, total
-
 
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew, s2s, ad_density, ew_cover, ad_ready):
     modifier = calculate_modifier(exp, moral, logi)
