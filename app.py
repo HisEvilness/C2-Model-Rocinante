@@ -82,6 +82,10 @@ with st.sidebar:
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
 
+with st.sidebar:
+    ...
+    st.subheader("Casualty Type Settings")
+    kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.30, step=0.01)
 
 # === Force Composition Stats ===
 composition_stats = {
@@ -245,8 +249,35 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(line_chart, use_container_width=True)
 
+# === Daily Casualty Curve Chart ===
+def plot_daily_curve(title, daily_range, duration):
+    x = list(range(0, duration + 1, 7))
+    min_per_day = [sum(v[0] for v in daily_range.values())] * len(x)
+    max_per_day = [sum(v[1] for v in daily_range.values())] * len(x)
+
+    daily_df = pd.DataFrame({
+        "Day": x,
+        "Min": min_per_day,
+        "Max": max_per_day
+    })
+
+    melted = pd.melt(daily_df, id_vars="Day", value_vars=["Min", "Max"], var_name="Type", value_name="Casualties")
+
+    chart = alt.Chart(melted).mark_line().encode(
+        x=alt.X("Day:Q", title="Day"),
+        y=alt.Y("Casualties:Q", title="Estimated Casualties per Day"),
+        color="Type:N"
+    ).properties(
+        title=f"{title} Daily Casualty Curve",
+        width=700,
+        height=300
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
 # === Display Function ===
-def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
@@ -263,15 +294,17 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.dataframe(df)
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
-    st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
+    kia_min = round(total_min * kia_ratio)
+    kia_max = round(total_max * kia_ratio)
+    wia_min = round(total_min - kia_min)
+    wia_max = round(total_max - kia_max)
+
+    st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
+    st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
+    st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
+
     plot_casualty_chart(name, daily_range, cumulative_range)
-
-# === Output Execution ===
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
-              exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus, weap_rus, train_rus)
-
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
-              exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr)
+    plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
 # === Historical Conflict Benchmarks & Comparison ===
 st.markdown("""---""")
