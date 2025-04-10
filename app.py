@@ -163,12 +163,12 @@ def adjusted_posture(posture, resilience, baseline=1.0):
     impact = offset * (1 - baseline / resilience)
     return 1 + 0.25 * math.tanh(3 * impact)
 
-posture_rus_adj = adjusted_posture(posture_rus, res_rus)
-posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
-
     st.subheader("Force Posture")
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
+
+posture_rus_adj = adjusted_posture(posture_rus, res_rus)
+posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
 
 # Composition Stats
 composition_stats = {
