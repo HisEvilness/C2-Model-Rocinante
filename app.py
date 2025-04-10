@@ -28,17 +28,17 @@ with st.sidebar:
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.15, step=0.01)
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
-    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.40, step=0.01)
+    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.35, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.2, step=0.01)
-    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.15, step=0.01)
+    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
-    cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.10, step=0.01)
+    cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
-    moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.75, step=0.01)
+    moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
 
     st.subheader("Environment & Weapon Systems")
@@ -52,7 +52,7 @@ with st.sidebar:
 
     st.subheader("ISR Coordination")
     s2s_rus = st.slider("🇷🇺 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.85, 0.01)
-    s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.60, 0.01)
+    s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.65, 0.01)
 
     st.subheader("Air Defense & EW")
     ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
@@ -62,6 +62,22 @@ with st.sidebar:
     ad_density_ukr = st.slider("🇺🇦 AD Density", 0.0, 1.0, 0.60, 0.01)
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
+
+    st.subheader("Force Posture")
+    posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
+    posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
+
+# Intensity and Posture Calculation
+intensity_map = {
+    1: (20, 600),
+    2: (50, 1000),
+    3: (100, 1500),
+    4: (160, 2500),
+    5: (220, 3500)
+}
+base_rus, base_ukr = intensity_map[intensity_level]
+base_rus *= posture_rus
+base_ukr *= posture_ukr
 
 # Placeholder for full logic implementation (to be appended)
 
@@ -98,15 +114,6 @@ weapons = {
     "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
 }
 total_share = sum(weapons.values())
-
-intensity_map = {
-    1: (20, 600),
-    2: (70, 1000),
-    3: (115, 1500),
-    4: (160, 2500),
-    5: (200, 3500)
-}
-base_rus, base_ukr = intensity_map[intensity_level]
 
 # Visual force readiness summary
 def draw_force_readiness_bar(s2s, ad_strength, ew_denial):
