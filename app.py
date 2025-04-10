@@ -63,8 +63,6 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
-    ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
-
     st.subheader("Force Composition")
     composition_options = ["VDV", "Armored", "Infantry", "Mechanized", "Artillery", "CAS Air", "FPV Teams", "EW Units"]
     composition_rus = st.multiselect("🇷🇺 Russian Composition", composition_options, default=composition_options)
