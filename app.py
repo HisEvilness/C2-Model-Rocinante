@@ -208,24 +208,30 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
     return results, total
 
-# === Plotting Function ===
+# === Fixed Weapon System Bar + Cumulative Line Chart ===
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
+
+    # Preserve order
+    systems = list(daily_range.keys())
+
     chart_data = pd.DataFrame({
-        "Weapon System": list(daily_range.keys()),
-        "Min": [v[0] for v in cumulative_range.values()],
-        "Max": [v[1] for v in cumulative_range.values()]
+        "Weapon System": systems,
+        "Min": [cumulative_range[sys][0] for sys in systems],
+        "Max": [cumulative_range[sys][1] for sys in systems]
     })
+
     chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
     chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
 
-    base = alt.Chart(chart_data).mark_bar(size=25, color="#bbbbbb").encode(
-        x=alt.X('Weapon System:N', title='System'),
+    # Bar Chart
+    base = alt.Chart(chart_data).mark_bar(size=40, color="#bbbbbb").encode(
+        x=alt.X('Weapon System:N', sort=None, title='Weapon System'),
         y=alt.Y('Min:Q', title='Min Casualties')
     )
 
-    delta = alt.Chart(chart_data).mark_bar(size=25, color="#1f77b4").encode(
-        x='Weapon System:N',
+    delta = alt.Chart(chart_data).mark_bar(size=40, color="#1f77b4").encode(
+        x=alt.X('Weapon System:N', sort=None),
         y='Min:Q',
         y2='Max End:Q',
         tooltip=['Weapon System', 'Min', 'Max']
@@ -233,6 +239,7 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(base + delta, use_container_width=True)
 
+    # Cumulative Line Chart
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
@@ -242,10 +249,14 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
 
     line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
-        x='Days:Q',
+        x=alt.X('Days:Q', title="Days"),
         y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
         color='Type:N'
-    ).properties(width=700, height=300, title=f"{title} Cumulative Casualty Curve")
+    ).properties(
+        title=f"{title} Cumulative Casualty Curve",
+        width=700,
+        height=300
+    )
 
     st.altair_chart(line_chart, use_container_width=True)
 
