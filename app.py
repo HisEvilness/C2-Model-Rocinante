@@ -166,6 +166,7 @@ if total_share == 0:
     st.stop()
 
 # === Casualty Calculation Logic ===
+st.write("plot input:", daily_range, cumulative_range)
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
     results, total = {}, {}
