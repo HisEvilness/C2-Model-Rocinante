@@ -166,47 +166,52 @@ if total_share == 0:
     st.stop()
 
 # === Casualty Calculation Logic ===
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
-                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
-    results, total = {}, {}
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
+    modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
+    daily_range, cumulative_range = calculate_casualties_range(
+        base, modifier, duration, ew_enemy, med, cmd, moral, logi,
+        s2s, ad_dens, ew_cov, ad_ready, weap_q, train
+    )
 
-    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
-    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+    df = pd.DataFrame({
+        "Daily Min": {k: v[0] for k, v in daily_range.items()},
+        "Daily Max": {k: v[1] for k, v in daily_range.items()},
+        "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
+        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
+    })
 
-    for system, share in weapons.items():
-        base_share = share / total_share
-        logi_factor = logistic_scaling(logi)
-        cmd_factor = commander_scaling(cmd)
-        weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
+    st.header(f"{flag} {name} Forces")
+    st.dataframe(df)
 
-        if system == "Artillery":
-            system_scaling = logistic_scaling(logi) * 0.95
-        elif system == "Drones":
-            drone_decay = max(0.9, 1 - 0.0002 * duration)
-            system_scaling = 0.65 * drone_decay
-        else:
-            system_scaling = 1.0
+    total_min = sum(v[0] for v in cumulative_range.values())
+    total_max = sum(v[1] for v in cumulative_range.values())
 
-        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
-        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-        drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
+    # ✅ Dynamic KIA calculation
+    kia_r = calculate_kia_ratio(med, logi, cmd)
+    kia_min = round(total_min * kia_r)
+    kia_max = round(total_max * kia_r)
+    wia_min = round(total_min - kia_min)
+    wia_max = round(total_max - kia_max)
 
-        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
-        system_eff *= weap_quality
-        system_eff = max(system_eff, 0.35)
+    st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
+    st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
+    st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
 
-        suppression = 1 - (0.05 + 0.05 * cmd)
-        base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral) * suppression
-        daily_base = base * decay_curve_factor
+    plot_casualty_chart(name, daily_range, cumulative_range)
+    plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
-        daily_min = daily_base * 0.95
-        daily_max = daily_base * 1.05
+def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+    med = min(max(med, 0.01), 1.0)
+    logi = min(max(logi, 0.01), 1.5)
+    cmd = min(max(cmd, 0.0), 0.5)
 
-        results[system] = (round(daily_min, 1), round(daily_max, 1))
-        total[system] = (round(daily_min * duration), round(daily_max * duration))
+    medical_penalty = (1 - med) ** 1.2
+    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
+    commander_bonus = cmd * 0.3
 
-    return results, total
+    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    return min(max(adjusted, 0.15), 0.75)
 
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
 from collections import OrderedDict
