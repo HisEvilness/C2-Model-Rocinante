@@ -77,16 +77,37 @@ with st.sidebar:
     st.subheader("Casualty Type Settings")
     kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.30, step=0.01)
 
+    st.subheader("Force Composition")
+    composition_rus = st.multiselect(
+    "🇷🇺 Russian Composition", composition_options,
+    default=["VDV", "Mechanized", "Artillery", "EW Units", "Engineer Units", "SOF"]
+    )
+
+    composition_ukr = st.multiselect(
+    "🇺🇦 Ukrainian Composition", composition_options,
+    default=["Infantry", "Territorial Defense", "FPV Teams", "Drone Units", "Artillery", "Foreign Legion"]
+    )
+
 # === Force Composition Stats ===
 composition_stats = {
-    "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.3},
-    "Armored": {"cohesion": 1.1, "weapons": 1.25, "training": 1.1},
-    "Infantry": {"cohesion": 0.9, "weapons": 0.8, "training": 0.85},
-    "Mechanized": {"cohesion": 1.05, "weapons": 1.15, "training": 1.0},
-    "Artillery": {"cohesion": 1.1, "weapons": 1.3, "training": 1.0},
-    "CAS Air": {"cohesion": 1.0, "weapons": 1.2, "training": 1.05},
-    "FPV Teams": {"cohesion": 0.95, "weapons": 1.1, "training": 1.05},
-    "EW Units": {"cohesion": 1.1, "weapons": 1.0, "training": 1.1}
+    "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.30},
+    "Armored": {"cohesion": 1.10, "weapons": 1.25, "training": 1.10},
+    "Mechanized": {"cohesion": 1.05, "weapons": 1.15, "training": 1.00},
+    "Artillery": {"cohesion": 1.10, "weapons": 1.30, "training": 1.00},
+    "CAS Air": {"cohesion": 1.00, "weapons": 1.20, "training": 1.05},
+    "Engineer Units": {"cohesion": 1.00, "weapons": 0.95, "training": 1.10},
+    "National Guard": {"cohesion": 0.95, "weapons": 0.90, "training": 0.85},
+    "Storm-Z": {"cohesion": 0.80, "weapons": 0.85, "training": 0.70},
+    "SOF": {"cohesion": 1.25, "weapons": 1.20, "training": 1.30},
+    "EW Units": {"cohesion": 1.10, "weapons": 1.00, "training": 1.10},
+    "Recon": {"cohesion": 1.15, "weapons": 1.10, "training": 1.20},
+    "C4ISR Teams": {"cohesion": 1.10, "weapons": 1.05, "training": 1.25},
+    "Infantry": {"cohesion": 0.90, "weapons": 0.80, "training": 0.85},
+    "Territorial Defense": {"cohesion": 0.75, "weapons": 0.70, "training": 0.65},
+    "Reservists": {"cohesion": 0.70, "weapons": 0.60, "training": 0.55},
+    "Drone Units": {"cohesion": 0.90, "weapons": 1.25, "training": 1.10},
+    "FPV Teams": {"cohesion": 0.95, "weapons": 1.10, "training": 1.05},
+    "Foreign Legion": {"cohesion": 1.10, "weapons": 1.05, "training": 1.15}
 }
 
 def aggregate_composition(selection):
@@ -154,6 +175,14 @@ total_share = sum(weapons.values())
 if total_share == 0:
     st.warning("Please enable at least one weapon system to view casualty estimates.")
     st.stop()
+
+# === Available Unit Types ===
+composition_options = [
+    "VDV", "Armored", "Mechanized", "Artillery", "CAS Air", "Engineer Units", "National Guard",
+    "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams",
+    "Infantry", "Territorial Defense", "Reservists", "Drone Units", "FPV Teams", "Foreign Legion"
+]
+
     
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
