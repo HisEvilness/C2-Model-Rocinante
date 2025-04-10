@@ -162,8 +162,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
+        casualty_suppression = 1 - (0.05 + 0.05 * cmd)
 
-        base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
+        base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi) * casualty_suppression
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
         results[system] = (round(daily_min, 1), round(daily_max, 1))
