@@ -28,10 +28,10 @@ with st.sidebar:
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.12, step=0.01)
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
-    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.20, step=0.01)
-    med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.62, step=0.01)
-    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.08, step=0.01)
-    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.12, step=0.01)
+    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.25, step=0.01)
+    med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
+    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.1, step=0.01)
+    logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
@@ -52,7 +52,7 @@ with st.sidebar:
 
     st.subheader("ISR Coordination")
     s2s_rus = st.slider("🇷🇺 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.85, 0.01)
-    s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.70, 0.01)
+    s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.65, 0.01)
 
     st.subheader("Air Defense & EW")
     ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
@@ -66,8 +66,6 @@ with st.sidebar:
 # Placeholder for full logic implementation (to be appended)
 
 st.success("UI fully loaded. Calculation engine ready to be injected.")
-
-
 
 # Utility scaling functions
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
@@ -102,7 +100,7 @@ total_share = sum(weapons.values())
 intensity_map = {
     1: (20, 600),
     2: (70, 1000),
-    3: (120, 1500),
+    3: (115, 1500),
     4: (160, 2500),
     5: (200, 3500)
 }
@@ -155,7 +153,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-        drone_penalty = min(max(ad_modifier * ew_modifier, 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
+        # Stronger compound penalty from well-layered AD/EW
+        raw_penalty = ad_modifier * ew_modifier
+        penalty_factor = 1 - (1 - raw_penalty) ** 1.5  # nonlinear suppression
+        drone_penalty = min(max(penalty_factor, 0.65), 1.05)
+
 
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
