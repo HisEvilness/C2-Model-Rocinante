@@ -74,8 +74,6 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
-with st.sidebar:
-    ...
     st.subheader("Casualty Type Settings")
     kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.30, step=0.01)
 
