@@ -411,38 +411,3 @@ display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr, kia_ratio)
 
 # === Historical Conflict Benchmarks & Comparison ===
-st.markdown("""---""")
-st.subheader("📊 Historical Conflict Benchmarks vs Model Output")
-
-benchmarks = pd.DataFrame([
-    {"Conflict": "Verdun (WWI)", "Days": 300, "Reference": 700_000},
-    {"Conflict": "Eastern Front (WWII)", "Days": 1410, "Reference": 6_000_000},
-    {"Conflict": "Vietnam War", "Days": 5475, "Reference": 1_100_000},
-    {"Conflict": "Korean War", "Days": 1128, "Reference": 1_200_000},
-    {"Conflict": "Iran–Iraq War", "Days": 2920, "Reference": 1_000_000},
-    {"Conflict": "Iraq War", "Days": 2920, "Reference": 525_000},
-    {"Conflict": "Russo-Ukrainian (Model)", "Days": duration_days, "Reference": 675_000}  # mid range
-])
-
-model_total = sum(v[0] for v in calculate_casualties_range(
-    base_rus, exp_rus * morale_scaling(moral_rus) * logistic_scaling(logi_rus),
-    duration_days, ew_ukr, med_rus, cmd_rus, moral_rus, logi_rus,
-    s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus, weap_rus, train_rus
-)[1].values()) + sum(v[0] for v in calculate_casualties_range(
-    base_ukr, exp_ukr * morale_scaling(moral_ukr) * logistic_scaling(logi_ukr),
-    duration_days, ew_rus, med_ukr, cmd_ukr, moral_ukr, logi_ukr,
-    s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr
-)[1].values())
-
-benchmarks["Model (Total)"] = benchmarks.apply(
-    lambda row: model_total if row["Conflict"] == "Russo-Ukrainian (Model)" else row["Reference"],
-    axis=1
-)
-benchmarks["Deviation %"] = (benchmarks["Model (Total)"] - benchmarks["Reference"]) / benchmarks["Reference"] * 100
-benchmarks["Deviation %"] = benchmarks["Deviation %"].round(2)
-
-st.dataframe(benchmarks.style.format({
-    "Reference": "{:,.0f}",
-    "Model (Total)": "{:,.0f}",
-    "Deviation %": "{:+.2f}%"
-}))
