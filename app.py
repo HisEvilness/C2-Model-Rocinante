@@ -212,14 +212,19 @@ from collections import OrderedDict
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready, weap_quality, training,
-                                weapons_dict):
-    results, total = OrderedDict(), OrderedDict()
-    total_share = sum(weapons_dict.values())
+                                weapons):
+    results, total = {}, {}
+    total_share = sum(weapons.values())
+
     if total_share == 0:
         st.warning("No active weapon systems. Please enable at least one.")
         return {}, {}
 
-    for system, share in weapons_dict.items():
+    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
+    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+
+    for system, share in weapons.items():
         if share == 0:
             continue
 
@@ -246,10 +251,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         suppression = 1 - (0.05 + 0.05 * cmd)
         base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral) * suppression
-
-        decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-        base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
-        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
 
         daily_base = base * decay_curve_factor
         daily_min = daily_base * 0.95
@@ -363,14 +364,16 @@ def plot_daily_curve(title, daily_range, duration):
 
 # === Display Function with KIA/WIA, Debug and Dual Charting ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
+
+    # Call the updated casualty model function
     daily_range, cumulative_range = calculate_casualties_range(
-    base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-    s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
+        base, modifier, duration, ew_enemy, med, cmd, moral, logi,
+        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
     )
 
-
+    # Build display DataFrame
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -381,17 +384,23 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
 
+    # Compute totals
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
-    kia_min = round(total_min * kia_ratio)
-    kia_max = round(total_max * kia_ratio)
+
+    # Apply KIA ratio logic
+    kia_r = calculate_kia_ratio(med, logi, cmd)
+    kia_min = round(total_min * kia_r)
+    kia_max = round(total_max * kia_r)
     wia_min = round(total_min - kia_min)
     wia_max = round(total_max - kia_max)
 
+    # Display totals
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
 
+    # Charts
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
