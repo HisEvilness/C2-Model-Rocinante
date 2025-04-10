@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import math
@@ -8,7 +7,6 @@ def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
 def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
 def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
-
 
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
@@ -136,8 +134,6 @@ intensity_map = {
 base_rus, base_ukr = intensity_map[intensity_level]
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
-
-
 
 # === Weapon Shares ===
 share_values = {
