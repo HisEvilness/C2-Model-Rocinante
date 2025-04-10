@@ -41,7 +41,7 @@ with st.sidebar:
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
     cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.35, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
-    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.2, step=0.01)
+    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.20, step=0.01)
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
@@ -69,18 +69,10 @@ with st.sidebar:
     ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
     ew_cover_rus = st.slider("🇷🇺 EW Coverage", 0.0, 1.0, 0.75, 0.01)
     ad_ready_rus = st.slider("🇷🇺 AD Readiness", 0.0, 1.0, 0.90, 0.01)
+
     ad_density_ukr = st.slider("🇺🇦 AD Density", 0.0, 1.0, 0.60, 0.01)
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
-
-    st.subheader("Force Composition")
-    composition_options = ["VDV", "Armored", "Infantry", "Mechanized", "Artillery", "CAS Air", "FPV Teams", "EW Units"]
-    composition_rus = st.multiselect("🇷🇺 Russian Composition", composition_options, default=composition_options)
-    composition_ukr = st.multiselect("🇺🇦 Ukrainian Composition", composition_options, default=composition_options)
-
-    st.subheader("Force Posture")
-    posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
-    posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
 
 with st.sidebar:
     ...
