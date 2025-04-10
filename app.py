@@ -215,12 +215,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
                                 s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
     results, total = OrderedDict(), OrderedDict()
 
-    # Compute decay factor based on morale, training, and logistic resilience
-    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
-    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
-
-    # Recalculate share from currently active systems
     total_share = sum(weapons.values())
     if total_share == 0:
         st.warning("No active weapon systems. Please enable at least one.")
@@ -233,10 +227,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base_share = share / total_share
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd)
-
         weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
 
-        # System-specific scaling
+        # Per-system scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -245,26 +238,39 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        # EW adjustments
-        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
+        ew_multiplier = 1.0 if system == "Air Strikes" else (0.75 if system == "Drones" else 1.0)
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
         drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-        # Final system effectiveness
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
         system_eff *= weap_quality
         system_eff = max(system_eff, 0.35)
 
-        # Apply suppression and decay
         suppression = 1 - (0.05 + 0.05 * cmd)
         base = base_rate * system_eff * modifier * medical_scaling(med, moral) * suppression
-        daily_base = base * decay_curve_factor
 
+        decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+        base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
+        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+
+        daily_base = base * decay_curve_factor
         daily_min = daily_base * 0.95
         daily_max = daily_base * 1.05
 
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
+
+        # 🔍 Debug Output (optional)
+        st.write(f"🧪 {system}", {
+            "share": share,
+            "base_share": base_share,
+            "weapon_boost": weapon_boost,
+            "system_scaling": system_scaling,
+            "coordination_bonus": coordination_bonus,
+            "drone_penalty": drone_penalty,
+            "system_eff": system_eff,
+            "daily_base": daily_base
+        })
 
     return results, total
 
