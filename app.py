@@ -259,17 +259,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
-
-        # 🔍 Debug Output (optional)
-        st.write(f"🧪 {system}", {
-            "share": share,
-            "base_share": base_share,
-            "weapon_boost": weapon_boost,
-            "system_scaling": system_scaling,
-            "coordination_bonus": coordination_bonus,
-            "drone_penalty": drone_penalty,
-            "system_eff": system_eff,
-            "daily_base": daily_base
         })
 
     return results, total
