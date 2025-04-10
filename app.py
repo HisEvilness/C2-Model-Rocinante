@@ -74,7 +74,9 @@ def medical_scaling(med, morale, logi):
     logistics_penalty = 1 + 0.2 * (1 - logistic_scaling(logi)) if logistic_scaling(logi) < 1 else 1 + 0.1 * (logistic_scaling(logi) - 1)
     return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1)) * logistics_penalty
 def commander_scaling(cmd, duration): return 1 / (1 + 0.3 * cmd)
-def calculate_modifier(exp, moral, logi): return exp * morale_scaling(moral) * logistic_scaling(logi)
+def calculate_modifier(exp, moral, logi):
+    experience_factor = 1 + 0.15 * math.tanh(3 * (exp - 1))
+    return experience_factor * morale_scaling(moral) * logistic_scaling(logi)
 
 # Weapon configuration
 share_values = {
