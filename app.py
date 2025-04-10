@@ -130,7 +130,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     def commander_scaling(value): return 1 + 0.10 * math.tanh(3 * value)
 
     # Exponential decay — stronger units decay slower
-    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+    decay_strength = 0.00025 + 0.00008 * math.tanh(duration / 700)
     base_resistance = morale_scaling(moral) * logistic_scaling(logi)
     decay_curve_factor = math.exp(-decay_strength * duration / base_resistance)
 
@@ -143,7 +143,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         cmd_bonus = commander_scaling(cmd)
         enemy_cmd_suppress = 1 - 0.08 * math.tanh(3 * 0.25)  # assume avg enemy cmd
 
-        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * (1 / cmd_bonus), 0.95), 1.05)
+        weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * (1 / cmd_bonus), 0.95), 1.08)
 
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
