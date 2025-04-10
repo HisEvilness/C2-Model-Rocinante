@@ -294,6 +294,81 @@ def plot_daily_curve(title, daily_range, duration):
 
     st.altair_chart(chart, use_container_width=True)
 
+def plot_casualty_chart(title, daily_range, cumulative_range):
+    st.subheader(f"{title} Casualty Distribution")
+
+    # Preserve order
+    systems = list(daily_range.keys())
+
+    chart_data = pd.DataFrame({
+        "Weapon System": systems,
+        "Min": [cumulative_range[sys][0] for sys in systems],
+        "Max": [cumulative_range[sys][1] for sys in systems]
+    })
+
+    chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
+    chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
+
+    base = alt.Chart(chart_data).mark_bar(size=40, color="#bbbbbb").encode(
+        x=alt.X('Weapon System:N', sort=None, title='Weapon System'),
+        y=alt.Y('Min:Q', title='Min Casualties')
+    )
+
+    delta = alt.Chart(chart_data).mark_bar(size=40, color="#1f77b4").encode(
+        x=alt.X('Weapon System:N', sort=None),
+        y='Min:Q',
+        y2='Max End:Q',
+        tooltip=['Weapon System', 'Min', 'Max']
+    )
+
+    st.altair_chart(base + delta, use_container_width=True)
+
+    # Cumulative Line Chart
+    line_data = pd.DataFrame({
+        "Days": list(range(0, duration_days + 1, 7)),
+        "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
+        "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
+    })
+
+    line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
+
+    line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
+        x=alt.X('Days:Q', title="Days"),
+        y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
+        color='Type:N'
+    ).properties(
+        title=f"{title} Cumulative Casualty Curve",
+        width=700,
+        height=300
+    )
+
+    st.altair_chart(line_chart, use_container_width=True)
+
+def plot_daily_curve(title, daily_range, duration):
+    x = list(range(0, duration + 1, 7))
+    min_per_day = [sum(v[0] for v in daily_range.values())] * len(x)
+    max_per_day = [sum(v[1] for v in daily_range.values())] * len(x)
+
+    daily_df = pd.DataFrame({
+        "Day": x,
+        "Min": min_per_day,
+        "Max": max_per_day
+    })
+
+    melted = pd.melt(daily_df, id_vars="Day", value_vars=["Min", "Max"], var_name="Type", value_name="Casualties")
+
+    chart = alt.Chart(melted).mark_line().encode(
+        x=alt.X("Day:Q", title="Day"),
+        y=alt.Y("Casualties:Q", title="Estimated Daily Casualties"),
+        color="Type:N"
+    ).properties(
+        title=f"{title} Daily Casualty Curve",
+        width=700,
+        height=300
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
 # === Display Function with KIA/WIA, Debug and Dual Charting ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
@@ -323,10 +398,6 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
-
-    # Debug Output (Optional)
-    st.write("Daily Range", daily_range)
-    st.write("Cumulative Range", cumulative_range)
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
