@@ -126,9 +126,13 @@ def draw_force_readiness_bar(s2s, ad_strength, ew_denial):
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready):
     results, total = {}, {}
 
+    # Independent commander effect
+    def commander_scaling(value): return 1 + 0.10 * math.tanh(3 * value)
+
+    # Exponential decay — stronger units decay slower
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    morale_decay = morale_scaling(moral)
-    decay_curve_factor = 1 + decay_strength * duration * (0.8 + 0.2 * (1 - morale_decay) * commander_scaling(cmd, duration))
+    base_resistance = morale_scaling(moral) * logistic_scaling(logi)
+    decay_curve_factor = math.exp(-decay_strength * duration / base_resistance)
 
     ad_modifier = 1 - ad_density * ad_ready
     ew_modifier = 1 - ew_cover
@@ -136,9 +140,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     for system, share in weapons.items():
         base_share = share / total_share
         logi_factor = logistic_scaling(logi)
-        cmd_factor = commander_scaling(cmd, duration)
+        cmd_bonus = commander_scaling(cmd)
+        enemy_cmd_suppress = 1 - 0.08 * math.tanh(3 * 0.25)  # assume avg enemy cmd
 
-        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.05)
+        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * (1 / cmd_bonus), 0.95), 1.05)
 
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
@@ -150,22 +155,16 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
-        commander_bonus = 1 + 0.08 * math.tanh(3 * cmd)
-        enemy_cmd_suppression = 1 - 0.06 * math.tanh(3 * cmd_factor)
-        dynamic_factor = commander_bonus * enemy_cmd_suppression
+        dynamic_factor = cmd_bonus * enemy_cmd_suppress
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-
-        # Stronger compound penalty from well-layered AD/EW
         raw_penalty = ad_modifier * ew_modifier
-        penalty_factor = 1 - (1 - raw_penalty) ** 1.5 
-        drone_penalty = min(max(penalty_factor, 0.65), 1.05)
+        drone_penalty = min(max(1 - (1 - raw_penalty)**1.5, 0.65), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
-        casualty_suppression = 1 - (0.05 + 0.05 * cmd)
 
-        casualty_suppression = 1 - (0.05 + 0.05 * cmd)
+        casualty_suppression = 1 - (0.05 + 0.05 * cmd)  # commander reduces end result
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi) * casualty_suppression
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
