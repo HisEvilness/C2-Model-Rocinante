@@ -148,8 +148,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
-        commander_bonus = 1 + 0.04 * cmd
-        enemy_cmd_suppression = 1 - 0.04 * cmd_factor
+        commander_bonus = 1 + 0.08 * math.tanh(3 * cmd)
+        enemy_cmd_suppression = 1 - 0.06 * math.tanh(3 * cmd_factor)
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
