@@ -26,11 +26,11 @@ with st.sidebar:
     intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
 
     st.subheader("🇷🇺 Russian Modifiers")
-    exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.12, step=0.01)
+    exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.15, step=0.01)
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
-    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.25, step=0.01)
+    cmd_rus = st.slider("Commander Efficiency (RU)", 0.0, 0.5, 0.35, step=0.01)
     med_rus = st.slider("Medical Support (RU)", 0.0, 1.0, 0.65, step=0.01)
-    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.1, step=0.01)
+    moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.2, step=0.01)
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
@@ -38,7 +38,7 @@ with st.sidebar:
     ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
     cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
     med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
-    moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.95, step=0.01)
+    moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
 
     st.subheader("Environment & Weapon Systems")
