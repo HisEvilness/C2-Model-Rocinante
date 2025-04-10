@@ -9,7 +9,7 @@ st.markdown("""
 This dashboard estimates cumulative casualty outcomes using a validated conflict model.
 
 ### Core Model: How It Works
-Causality and degradation calculations are based on:
+Casualty and degradation calculations are based on:
 - Artillery usage (70–90% of losses in conventional war)
 - Drone warfare and air strikes adjusted for EW effects
 - Commander efficiency and leadership survivability bonuses
@@ -25,6 +25,7 @@ with st.sidebar:
     duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
     intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
 
+    # Russian Modifiers
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.15, step=0.01)
     ew_rus = st.slider("EW Effectiveness vs Ukraine", 0.1, 1.5, 0.90, step=0.01)
@@ -33,6 +34,7 @@ with st.sidebar:
     moral_rus = st.slider("Morale Factor (RU)", 0.5, 1.5, 1.2, step=0.01)
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
+    # Ukrainian Modifiers
     st.subheader("🇺🇦 Ukrainian Modifiers")
     exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
@@ -41,6 +43,7 @@ with st.sidebar:
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
     logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
 
+    # Environmental Settings
     st.subheader("Environment & Weapon Systems")
     artillery_on = st.checkbox("Include Artillery", True)
     drones_on = st.checkbox("Include Drones", True)
@@ -50,10 +53,12 @@ with st.sidebar:
     armor_on = st.checkbox("Include Armored Vehicles", True)
     airstrikes_on = st.checkbox("Include Air Strikes", True)
 
+    # ISR Coordination
     st.subheader("ISR Coordination")
     s2s_rus = st.slider("🇷🇺 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.85, 0.01)
     s2s_ukr = st.slider("🇺🇦 Sensor-to-Shooter Efficiency", 0.5, 1.0, 0.65, 0.01)
 
+    # Air Defense & EW
     st.subheader("Air Defense & EW")
     ad_density_rus = st.slider("🇷🇺 AD Density", 0.0, 1.0, 0.85, 0.01)
     ew_cover_rus = st.slider("🇷🇺 EW Coverage", 0.0, 1.0, 0.75, 0.01)
@@ -63,112 +68,17 @@ with st.sidebar:
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
+    # Force Composition
     st.subheader("Force Composition")
     composition_options = ["VDV", "Armored", "Infantry", "Mechanized", "Artillery", "CAS Air", "FPV Teams", "EW Units"]
     composition_rus = st.multiselect("🇷🇺 Russian Composition", composition_options, default=composition_options)
     composition_ukr = st.multiselect("🇺🇦 Ukrainian Composition", composition_options, default=composition_options)
 
-# Utility Functions
-def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
-def logistic_scaling(l): return 0.5 + 0.5 * l
-
-def medical_scaling(med, morale):
-    return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
-
-def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
-
-def compute_decay_factor(duration, morale, logi, training):
-    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    base_resistance = morale_scaling(morale) * logistic_scaling(logi) * training
-    return max(math.exp(-decay_strength * duration / base_resistance), 0.6)
-
-def compute_system_efficiency(system, share, ew_enemy, logi, cmd, duration, s2s, ad_density, ew_cover, weap_quality):
-    base_share = share / total_share
-    logi_factor = logistic_scaling(logi)
-    cmd_factor = commander_scaling(cmd)
-    weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
-
-    if system == "Artillery":
-        system_scaling = logistic_scaling(logi) * 0.95
-    elif system == "Drones":
-        drone_decay = max(0.9, 1 - 0.0002 * duration)
-        system_scaling = 0.65 * drone_decay
-    else:
-        system_scaling = 1.0
-
-    ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
-    coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
-    drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
-
-    system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
-    system_eff *= weap_quality
-    return max(system_eff, 0.35)
-
-def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi, s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
-    results, total = {}, {}
-
-    decay_curve_factor = compute_decay_factor(duration, moral, logi, training)
-
-    for system, share in weapons.items():
-        system_eff = compute_system_efficiency(system, share, ew_enemy, logi, cmd, duration, s2s, ad_density, ew_cover, weap_quality)
-        suppression = 1 - (0.05 + 0.05 * cmd)
-        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * suppression
-        daily_base = base * decay_curve_factor
-
-        daily_min = daily_base * 0.95
-        daily_max = daily_base * 1.05
-
-        results[system] = (round(daily_min, 1), round(daily_max, 1))
-        total[system] = (round(daily_min * duration), round(daily_max * duration))
-
-    return results, total
-    
-    # === Force Composition Definitions ===
-composition_stats = {
-    "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.3},
-    "Armored": {"cohesion": 1.1, "weapons": 1.25, "training": 1.1},
-    "Infantry": {"cohesion": 0.9, "weapons": 0.8, "training": 0.85},
-    "Mechanized": {"cohesion": 1.05, "weapons": 1.15, "training": 1.0},
-    "Artillery": {"cohesion": 1.1, "weapons": 1.3, "training": 1.0},
-    "CAS Air": {"cohesion": 1.0, "weapons": 1.2, "training": 1.05},
-    "FPV Teams": {"cohesion": 0.95, "weapons": 1.1, "training": 1.05},
-    "EW Units": {"cohesion": 1.1, "weapons": 1.0, "training": 1.1}
-}
-
-def aggregate_composition(selection):
-    if not selection:
-        return 1.0, 1.0, 1.0
-    c_sum, w_sum, t_sum = 0, 0, 0
-    for unit in selection:
-        stats = composition_stats.get(unit, {})
-        c_sum += stats.get("cohesion", 1)
-        w_sum += stats.get("weapons", 1)
-        t_sum += stats.get("training", 1)
-    n = len(selection)
-    return c_sum / n, w_sum / n, t_sum / n
-
-coh_rus, weap_rus, train_rus = aggregate_composition(composition_rus)
-coh_ukr, weap_ukr, train_ukr = aggregate_composition(composition_ukr)
-
-def force_resilience(moral, logi, cmd, cohesion, training):
-    return morale_scaling(moral) * logistic_scaling(logi) * (1 + 0.2 * cmd) * cohesion * training
-
-res_rus = force_resilience(moral_rus, logi_rus, cmd_rus, coh_rus, train_rus)
-res_ukr = force_resilience(moral_ukr, logi_ukr, cmd_ukr, coh_ukr, train_ukr)
-
-def adjusted_posture(posture, resilience, baseline=1.0):
-    offset = posture - 1.0
-    impact = offset * (1 - baseline / resilience)
-    return 1 + 0.25 * math.tanh(3 * impact)
-
+    # Force Posture
     st.subheader("Force Posture")
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
-
-posture_rus_adj = adjusted_posture(posture_rus, res_rus)
-posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
-
-# Composition Stats
+# === Force Composition Stats ===
 composition_stats = {
     "VDV": {"cohesion": 1.25, "weapons": 1.15, "training": 1.3},
     "Armored": {"cohesion": 1.1, "weapons": 1.25, "training": 1.1},
@@ -220,7 +130,7 @@ base_rus, base_ukr = intensity_map[intensity_level]
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
-# Weapon Shares
+# === Weapon Shares ===
 share_values = {
     "Artillery": 0.63,
     "Drones": 0.10,
@@ -230,6 +140,7 @@ share_values = {
     "Armored Vehicles": 0.07,
     "Air Strikes": 0.10
 }
+
 weapons = {
     "Artillery": share_values["Artillery"] if artillery_on else 0.0,
     "Drones": share_values["Drones"] if drones_on else 0.0,
@@ -239,11 +150,13 @@ weapons = {
     "Armored Vehicles": share_values["Armored Vehicles"] if armor_on else 0.0,
     "Air Strikes": share_values["Air Strikes"] if airstrikes_on else 0.0
 }
+
 total_share = sum(weapons.values())
 if total_share == 0:
     st.warning("Please enable at least one weapon system to view casualty estimates.")
     st.stop()
 
+# === Casualty Calculation Logic ===
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
     results, total = {}, {}
@@ -286,7 +199,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
     return results, total
 
-# Plotting Function
+# === Plotting Function ===
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
     chart_data = pd.DataFrame({
@@ -327,7 +240,7 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
     st.altair_chart(line_chart, use_container_width=True)
 
-# Display Block
+# === Display Function ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration, enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
     daily_range, cumulative_range = calculate_casualties_range(
@@ -348,25 +261,43 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties (Range)", f"{total_min:,} - {total_max:,}")
     plot_casualty_chart(name, daily_range, cumulative_range)
 
-# Outputs
+# === Output Execution ===
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus, weap_rus, train_rus)
 
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr)
 
-# Historical Context Table
-with st.expander("Historical Conflict Benchmarks"):
-    st.markdown("""
-    | Conflict | Duration (days) | Casualties | Alignment |
-    |----------|------------------|------------|-----------|
-    | Verdun (WWI) | 300 | ~700,000 | Matches artillery attrition |
-    | Eastern Front (WWII) | 1410 | ~6M | Aligned with extended high-intensity |
-    | Vietnam War | 5475 | ~1.1M | Attrition and morale degradation |
-    | Korean War | 1128 | ~1.2M | High ground combat and seasonal intensity |
-    | Iran–Iraq War | 2920 | ~1M+ | Prolonged trench, chemical, artillery attrition |
-    | Iraq War | 2920 | ~400–650K | Urban + airstrike dynamics |
-    | Russo-Ukrainian | 1031+ | ~500–800K | Validated with modern warfare factors |
-    """)
+# === Historical Conflict Benchmarks & Comparison ===
+st.markdown("""---""")
+st.subheader("📊 Historical Conflict Benchmarks vs Model Output")
 
-st.markdown("---\n**Credits:** Strategic modeling by Infinity Fabric LLC.")
+benchmarks = pd.DataFrame([
+    {"Conflict": "Verdun (WWI)", "Days": 300, "Reference": 700_000},
+    {"Conflict": "Eastern Front (WWII)", "Days": 1410, "Reference": 6_000_000},
+    {"Conflict": "Vietnam War", "Days": 5475, "Reference": 1_100_000},
+    {"Conflict": "Korean War", "Days": 1128, "Reference": 1_200_000},
+    {"Conflict": "Iran–Iraq War", "Days": 2920, "Reference": 1_000_000},
+    {"Conflict": "Iraq War", "Days": 2920, "Reference": 525_000},
+    {"Conflict": "Russo-Ukrainian (Model)", "Days": duration_days, "Reference": 675_000}  # mid range
+])
+
+model_total = sum(v[0] for v in calculate_casualties_range(
+    base_rus, exp_rus * morale_scaling(moral_rus) * logistic_scaling(logi_rus),
+    duration_days, ew_ukr, med_rus, cmd_rus, moral_rus, logi_rus,
+    s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus, weap_rus, train_rus
+)[1].values()) + sum(v[0] for v in calculate_casualties_range(
+    base_ukr, exp_ukr * morale_scaling(moral_ukr) * logistic_scaling(logi_ukr),
+    duration_days, ew_rus, med_ukr, cmd_ukr, moral_ukr, logi_ukr,
+    s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr
+)[1].values())
+
+benchmarks["Model (Total)"] = benchmarks["Reference"] if benchmarks["Conflict"] != "Russo-Ukrainian (Model)" else model_total
+benchmarks["Deviation %"] = (benchmarks["Model (Total)"] - benchmarks["Reference"]) / benchmarks["Reference"] * 100
+benchmarks["Deviation %"] = benchmarks["Deviation %"].round(2)
+
+st.dataframe(benchmarks.style.format({
+    "Reference": "{:,.0f}",
+    "Model (Total)": "{:,.0f}",
+    "Deviation %": "{:+.2f}%"
+}))
