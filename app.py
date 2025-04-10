@@ -158,7 +158,12 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
             drone_penalty = ad_modifier * ew_modifier
 
         base_share = share / total_share
-        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus * drone_penalty
+        coordination_bonus = min(max(s2s, 0.85), 1.15)
+        drone_penalty = min(max(ad_modifier * ew_modifier, 0.75), 1.15)
+
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling
+        system_eff *= coordination_bonus * drone_penalty
+
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
