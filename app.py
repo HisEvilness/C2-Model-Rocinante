@@ -209,56 +209,64 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
     return results, total
 
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
-def plot_casualty_chart(title, daily_range, cumulative_range):
-    st.subheader(f"{title} Casualty Distribution")
+from collections import OrderedDict
 
-    # Preserve order
-    systems = list(daily_range.keys())
+def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
+                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training):
+    results, total = OrderedDict(), OrderedDict()
 
-    chart_data = pd.DataFrame({
-        "Weapon System": systems,
-        "Min": [cumulative_range[sys][0] for sys in systems],
-        "Max": [cumulative_range[sys][1] for sys in systems]
-    })
+    # Compute decay factor based on morale, training, and logistic resilience
+    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+    base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
+    decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
 
-    chart_data["Delta"] = chart_data["Max"] - chart_data["Min"]
-    chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
+    # Recalculate share from currently active systems
+    total_share = sum(weapons.values())
+    if total_share == 0:
+        st.warning("No active weapon systems. Please enable at least one.")
+        return {}, {}
 
-    # Bar Chart
-    base = alt.Chart(chart_data).mark_bar(size=40, color="#bbbbbb").encode(
-        x=alt.X('Weapon System:N', sort=None, title='Weapon System'),
-        y=alt.Y('Min:Q', title='Min Casualties')
-    )
+    for system, share in weapons.items():
+        if share == 0:
+            continue
 
-    delta = alt.Chart(chart_data).mark_bar(size=40, color="#1f77b4").encode(
-        x=alt.X('Weapon System:N', sort=None),
-        y='Min:Q',
-        y2='Max End:Q',
-        tooltip=['Weapon System', 'Min', 'Max']
-    )
+        base_share = share / total_share
+        logi_factor = logistic_scaling(logi)
+        cmd_factor = commander_scaling(cmd)
 
-    st.altair_chart(base + delta, use_container_width=True)
+        weapon_boost = min(max(1 + 0.07 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.08)
 
-    # Cumulative Line Chart
-    line_data = pd.DataFrame({
-        "Days": list(range(0, duration_days + 1, 7)),
-        "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
-        "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
-    })
+        # System-specific scaling
+        if system == "Artillery":
+            system_scaling = logistic_scaling(logi) * 0.95
+        elif system == "Drones":
+            drone_decay = max(0.9, 1 - 0.0002 * duration)
+            system_scaling = 0.65 * drone_decay
+        else:
+            system_scaling = 1.0
 
-    line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
+        # EW adjustments
+        ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
+        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
+        drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-    line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
-        x=alt.X('Days:Q', title="Days"),
-        y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
-        color='Type:N'
-    ).properties(
-        title=f"{title} Cumulative Casualty Curve",
-        width=700,
-        height=300
-    )
+        # Final system effectiveness
+        system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
+        system_eff *= weap_quality
+        system_eff = max(system_eff, 0.35)
 
-    st.altair_chart(line_chart, use_container_width=True)
+        # Apply suppression and decay
+        suppression = 1 - (0.05 + 0.05 * cmd)
+        base = base_rate * system_eff * modifier * medical_scaling(med, moral) * suppression
+        daily_base = base * decay_curve_factor
+
+        daily_min = daily_base * 0.95
+        daily_max = daily_base * 1.05
+
+        results[system] = (round(daily_min, 1), round(daily_max, 1))
+        total[system] = (round(daily_min * duration), round(daily_max * duration))
+
+    return results, total
 
 # === Daily Casualty Curve Chart ===
 def plot_daily_curve(title, daily_range, duration):
