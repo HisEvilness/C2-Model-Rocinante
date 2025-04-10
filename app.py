@@ -134,7 +134,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         logi_factor = logistic_scaling(logi)
         cmd_factor = commander_scaling(cmd, duration)
 
-        # Base system scaling
+        # Weapon boost from logistics + command
+        weapon_boost = min(max(1 + 0.05 * (logi_factor - 1) - 0.01 * cmd_factor, 0.95), 1.05)
+
+        # System-specific scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -143,26 +146,26 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        # EW scaling
+        # EW effectiveness on system
         ew_multiplier = 1.0 if system == 'Air Strikes' else (0.75 if system == 'Drones' else 1.0)
 
-        # Commander effect
+        # Commander coordination
         commander_bonus = 1 + 0.04 * cmd
         enemy_cmd_suppression = 1 - 0.04 * cmd_factor
         dynamic_factor = commander_bonus * enemy_cmd_suppression
 
-        # Coordination bonus only for indirect fires
+        # ISR coordination for indirect systems only
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
-        # Drone penalty only applied if relevant
+        # Drone penalty due to AD/EW defenses
         drone_penalty = min(max(ad_modifier * ew_modifier, 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-        # Final effectiveness calculation
+        # Combined effectiveness
         system_eff = base_share * ew_enemy * ew_multiplier * weapon_boost * dynamic_factor * system_scaling * coordination_bonus
         system_eff *= drone_penalty
         system_eff = max(system_eff, 0.35)
 
-        # Casualty computation
+        # Final casualty computation
         base = base_rate * system_eff * modifier * medical_scaling(med, moral, logi)
         daily_base = base * decay_curve_factor
         daily_min, daily_max = daily_base * 0.95, daily_base * 1.05
