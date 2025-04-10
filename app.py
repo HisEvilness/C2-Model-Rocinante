@@ -288,8 +288,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
         drone_penalty = min(max((1 - ad_density * ad_ready) * (1 - ew_cover), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
 
-        system_eff = ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty
-        system_eff *= weap_quality
+        # Raw stacking of multipliers
+        raw_eff = ew_enemy * ew_multiplier * weapon_boost * system_scaling * coordination_bonus * drone_penalty * weap_quality
+
+        # Normalize it with a soft cap (log-based damping)
+        system_eff = 1 + 0.5 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff, 0.35)
 
         suppression = 1 - (0.05 + 0.05 * cmd)
