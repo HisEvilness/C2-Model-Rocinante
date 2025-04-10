@@ -35,6 +35,9 @@ with st.sidebar:
     st.header("Scenario Configuration")
     duration_days = st.slider("Conflict Duration (Days)", 30, 1825, 1031, step=7)
     intensity_level = st.slider("Combat Intensity (1=Low, 5=High)", 1, 5, 3)
+    st.subheader("Force Posture")
+    posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
+    posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
 
     st.subheader("🇷🇺 Russian Modifiers")
     exp_rus = st.slider("Experience Factor (RU)", 0.5, 1.5, 1.15, step=0.01)
