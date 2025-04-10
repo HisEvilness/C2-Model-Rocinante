@@ -299,6 +299,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         daily_min = daily_base * 0.95
         daily_max = daily_base * 1.05
 
+        # Final realism correction: prevents excessive overshoot
+        scaling_factor = 0.85 if base_rate > 100 else 0.95
+        daily_min *= scaling_factor
+        daily_max *= scaling_factor
+
         results[system] = (round(daily_min, 1), round(daily_max, 1))
         total[system] = (round(daily_min * duration), round(daily_max * duration))
 
