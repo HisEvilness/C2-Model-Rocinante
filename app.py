@@ -208,8 +208,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
     return results, total
 
-
-
 # === Plotting Function ===
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
@@ -279,8 +277,6 @@ display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_r
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr)
 
-
-
 # === Historical Conflict Benchmarks & Comparison ===
 st.markdown("""---""")
 st.subheader("📊 Historical Conflict Benchmarks vs Model Output")
@@ -305,7 +301,10 @@ model_total = sum(v[0] for v in calculate_casualties_range(
     s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr
 )[1].values())
 
-benchmarks["Model (Total)"] = benchmarks["Reference"] if benchmarks["Conflict"] != "Russo-Ukrainian (Model)" else model_total
+benchmarks["Model (Total)"] = benchmarks.apply(
+    lambda row: model_total if row["Conflict"] == "Russo-Ukrainian (Model)" else row["Reference"],
+    axis=1
+)
 benchmarks["Deviation %"] = (benchmarks["Model (Total)"] - benchmarks["Reference"]) / benchmarks["Reference"] * 100
 benchmarks["Deviation %"] = benchmarks["Deviation %"].round(2)
 
