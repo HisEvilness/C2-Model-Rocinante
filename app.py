@@ -164,6 +164,20 @@ total_share = sum(weapons.values())
 if total_share == 0:
     st.warning("Please enable at least one weapon system to view casualty estimates.")
     st.stop()
+    
+# === KIA/WIA Logic ===
+def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+    med = min(max(med, 0.01), 1.0)
+    logi = min(max(logi, 0.01), 1.5)
+    cmd = min(max(cmd, 0.0), 0.5)
+
+    medical_penalty = (1 - med) ** 1.2
+    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
+    commander_bonus = cmd * 0.3
+
+    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    return min(max(adjusted, 0.15), 0.75)
+
 
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
@@ -200,18 +214,6 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
-
-def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
-    med = min(max(med, 0.01), 1.0)
-    logi = min(max(logi, 0.01), 1.5)
-    cmd = min(max(cmd, 0.0), 0.5)
-
-    medical_penalty = (1 - med) ** 1.2
-    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
-    commander_bonus = cmd * 0.3
-
-    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
-    return min(max(adjusted, 0.15), 0.75)
 
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
 from collections import OrderedDict
