@@ -16,7 +16,12 @@ def medical_scaling(med, morale, logi):
 
 def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
 
-def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
+    """
+    Calculates adjusted KIA ratio under influence of medical support, logistics, commander effectiveness,
+    and strategic dominance deltas.
+    """
+    # --- Core penalties ---
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
@@ -25,8 +30,16 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
     logistics_penalty = (1 - (logi / 1.5)) ** 0.8
     commander_bonus = cmd * 0.3
 
-    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
-    return min(max(adjusted, 0.15), 0.75)
+    # --- Strategic scaling: push KIA ratio higher under suppression
+    suppression_mod = dominance_mods.get("suppression_mod", 1.0)
+    efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
+
+    dominance_effect = max(suppression_mod + efficiency_mod - 2.0, 0)
+    delta_penalty = 1 + 0.4 * dominance_effect ** 1.1  # nonlinear
+
+    # --- Final composition
+    adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus) * delta_penalty
+    return min(max(adjusted, 0.12), 0.75)
 
 # === Relative Advantage Calculation ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
