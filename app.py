@@ -239,18 +239,23 @@ composition_options = [
     
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
-    # Clamp inputs
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
 
-    # Weighted penalties and bonuses
-    med_penalty = (1.0 - med) * 0.6       # Reduced from exponential
-    logi_penalty = (1.5 - logi) * 0.4
-    cmd_bonus = cmd * 0.4                 # Slightly stronger commander effect
+    medical_penalty = (1 - med) ** 1.2
+    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
+    commander_bonus = cmd * 0.3
 
-    adjusted = base_ratio + med_penalty + logi_penalty - cmd_bonus
-    return min(max(adjusted, 0.22), 0.55)
+    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    return min(max(adjusted, 0.15), 0.75)
+
+def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
+    return {
+        "cmd_delta": cmd_rus - cmd_ukr,
+        "logi_delta": logi_rus - logi_ukr,
+        "morale_delta": moral_rus - moral_ukr
+    }
 
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
 from collections import OrderedDict
@@ -514,6 +519,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
 # === Execute Final Force Display ===
+# === Render Force Displays ===
 display_force("🇷🇺", "Russian",
               base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
