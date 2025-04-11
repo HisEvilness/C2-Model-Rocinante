@@ -263,48 +263,44 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         st.warning("No weapon systems enabled.")
         return {}, {}
 
-    # Decay over time — posture/logi/morale balanced
+    # Core decay factor (posture, morale, logistics, training)
     decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    resilience = logistic_scaling(logi) * morale_scaling(moral) * training
-    decay_curve_factor = max(math.exp(-decay_strength * duration / resilience), 0.6)
+    resistance = logistic_scaling(logi) * morale_scaling(moral) * training
+    decay_curve_factor = max(math.exp(-decay_strength * duration / resistance), 0.6)
 
     for system, share in weapons.items():
         if share == 0:
             continue
 
-        # Normalize weapon contribution
         base_share = share / total_share
 
-        # Moderate per-system scaling (fixed values preferred)
+        # System type decay modifier
         if system == "Artillery":
-            system_scaling = 1.0 * logistic_scaling(logi)
+            system_scaling = logistic_scaling(logi) * 1.0
         elif system == "Drones":
-            drone_decay = max(0.9, 1 - 0.0002 * duration)
-            system_scaling = 0.65 * drone_decay
+            system_scaling = 0.65 * max(0.85, 1 - 0.0003 * duration)
         elif system == "Air Strikes":
             system_scaling = 1.1
         else:
             system_scaling = 1.0
 
-        # Simplified EW / AD suppression for drones & airstrikes
-        ew_multiplier = 1.0 if system not in ["Drones", "Air Strikes"] else (1 - 0.3 * ew_cover)
-        ad_penalty = 1.0 if system not in ["Drones", "Air Strikes"] else (1 - 0.3 * ad_density * ad_ready)
-        coordination_bonus = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Drones", "Air Strikes"] else 1.0
+        # Limited EW / AD suppression logic
+        ew_penalty = 1 - ew_cover if system in ["Drones", "Air Strikes"] else 1.0
+        ad_penalty = 1 - (ad_density * ad_ready) if system in ["Drones", "Air Strikes"] else 1.0
+        coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Drones", "Air Strikes"] else 1.0
 
-        # Combined system effectiveness with gentle modifiers
-        system_eff = system_scaling * ew_multiplier * ad_penalty * coordination_bonus * weap_quality
-        system_eff = max(min(system_eff, 1.5), 0.35)
+        # Combined capped efficiency
+        raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weap_quality
+        system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
+        system_eff = max(system_eff, 0.35)
 
-        # Commander reduces own losses (suppression factor)
+        # Suppression & medical efficiency
         suppression = 1 - (0.04 + 0.06 * cmd)
+        med_factor = (1 + (1 - med) ** 1.2) * (1 + 0.08 * (morale_scaling(moral) - 1))
 
-        # Medical factor (reduced deaths from same hits)
-        med_factor = (1 + (1 - med) ** 1.2) * (1 + 0.1 * (morale_scaling(moral) - 1))
-
-        # Core daily base
+        # Core computation
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
         daily_base = base * decay_curve_factor
-
         daily_min = round(daily_base * 0.95, 1)
         daily_max = round(daily_base * 1.05, 1)
 
