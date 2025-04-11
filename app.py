@@ -139,8 +139,8 @@ def aggregate_composition(selection):
     n = len(selection)
     return c_sum / n, w_sum / n, t_sum / n
 
-coh_rus, weap_rus, train_rus = aggregate_composition(composition_rus)
-coh_ukr, weap_ukr, train_ukr = aggregate_composition(composition_ukr)
+coh_rus, weapon_quality_rus, train_rus = aggregate_composition(composition_rus)
+coh_ukr, weapon_quality_ukr, train_ukr = aggregate_composition(composition_ukr)
 
 def force_resilience(moral, logi, cmd, cohesion, training):
     return morale_scaling(moral) * logistic_scaling(logi) * (1 + 0.2 * cmd) * cohesion * training
@@ -208,7 +208,6 @@ composition_options = [
     "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams",
     "Infantry", "Territorial Defense", "Reservists", "Drone Units", "FPV Teams", "Foreign Legion"
 ]
-
     
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
