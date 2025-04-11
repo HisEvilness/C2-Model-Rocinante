@@ -267,17 +267,13 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 from collections import OrderedDict
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
-                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training, weapons):
-    results, total = {}, {}
+                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training, cohesion, weapons):
+    results, total = OrderedDict(), OrderedDict()
+
     total_share = sum(weapons.values())
     if total_share == 0:
-        st.warning("No weapon systems enabled.")
+        st.warning("No active weapon systems. Please enable at least one.")
         return {}, {}
-
-    # Core decay factor (posture, morale, logistics, training)
-    decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-    resistance = logistic_scaling(logi) * morale_scaling(moral) * training
-    decay_curve_factor = max(math.exp(-decay_strength * duration / resistance), 0.6)
 
     for system, share in weapons.items():
         if share == 0:
@@ -285,35 +281,44 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         base_share = share / total_share
 
-        # System type decay modifier
+        # === Efficiency Factors ===
+        logi_factor = logistic_scaling(logi)
+        cmd_factor = commander_scaling(cmd)
+
+        # System-specific scaling
         if system == "Artillery":
-            system_scaling = logistic_scaling(logi) * 1.0
+            system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
-            system_scaling = 0.65 * max(0.85, 1 - 0.0003 * duration)
-        elif system == "Air Strikes":
-            system_scaling = 1.1
+            drone_decay = max(0.9, 1 - 0.0002 * duration)
+            system_scaling = 0.65 * drone_decay
         else:
             system_scaling = 1.0
 
-        # Limited EW / AD suppression logic
-        ew_penalty = 1 - ew_cover if system in ["Drones", "Air Strikes"] else 1.0
-        ad_penalty = 1 - (ad_density * ad_ready) if system in ["Drones", "Air Strikes"] else 1.0
-        coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Drones", "Air Strikes"] else 1.0
+        # Coordination & denial multipliers
+        ew_penalty = 1.0 if system == "Air Strikes" else (0.75 if system == "Drones" else 1.0)
+        ad_penalty = min(max((1 - ad_density * ad_ready), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
+        coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
-        # Combined capped efficiency
+        # === Combined capped efficiency
         raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weap_quality
         system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff, 0.35)
 
-        # Suppression & medical efficiency
-        base_suppression = 1 - (0.03 + 0.05 * cmd)  # mild but stable
+        # === Suppression logic
+        base_suppression = 1 - (0.03 + 0.05 * cmd)
         training_bonus = 1 + 0.05 * training
         cohesion_factor = 0.98 + 0.03 * cohesion
-
         suppression = base_suppression * training_bonus * cohesion_factor
 
-        # Core computation
-        base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral, logi) * suppression
+        # === Medical and logistics scaling
+        med_factor = medical_scaling(med, moral, logi)
+
+        # === Core casualty computation
+        base = base_rate * base_share * system_eff * modifier * med_factor * suppression
+        decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
+        base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
+        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
         daily_max = round(daily_base * 1.05, 1)
