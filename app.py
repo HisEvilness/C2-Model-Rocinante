@@ -125,7 +125,7 @@ with st.sidebar:
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
 
     st.subheader("Casualty Type Settings")
-    kia_ratio = st.slider("Est. KIA Ratio", 0.10, 0.60, 0.45, step=0.01)
+    kia_ratio = st.slider("Est. KIA Ratio", 0.10, 0.60, 0.25, step=0.01)
 
     st.subheader("Force Composition")
 
