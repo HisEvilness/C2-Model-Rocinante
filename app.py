@@ -364,10 +364,9 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
-                  weapon_quality, training, cohesion, weapons):
+                  weapon_quality, training, cohesion, weapons, kia_slider):
     
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
-    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=kia_ratio)
 
     # 🔄 Compute deltas for dominance comparison
     if flag == "🇷🇺":
@@ -378,6 +377,11 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
         deltas = compute_relative_dominance(cmd, cmd_rus, logi, logi_rus, moral, moral_rus)
         deltas["ad_delta"] = ad_density_ukr - ad_density_rus
         deltas["ew_delta"] = ew_cover_ukr - ew_cover_rus
+
+    dominance_mods = compute_dominance_modifiers(deltas)
+
+    # 🧮 Adjust KIA ratio based on dominance effects
+    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=kia_slider)
 
     # 📊 Run the updated casualty calculation
     daily_range, cumulative_range = calculate_casualties_range(
@@ -516,11 +520,11 @@ def plot_daily_curve(title, daily_range, duration):
 display_force("🇷🇺", "Russian",
               base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-              weapon_quality_rus, train_rus, coh_rus, weapons)
+              weapon_quality_rus, train_rus, coh_rus, weapons, kia_ratio)
 
 display_force("🇺🇦", "Ukrainian",
               base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-              weapon_quality_ukr, train_ukr, coh_ukr, weapons)
+              weapon_quality_ukr, train_ukr, coh_ukr, weapons, kia_ratio)
 
 # === Historical Conflict Benchmarks & Comparison ===
