@@ -300,7 +300,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
         # === Combined capped efficiency
-        raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weap_quality
+        raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weapon_quality
         system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff, 0.35)
 
