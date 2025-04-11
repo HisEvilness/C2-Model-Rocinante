@@ -260,16 +260,30 @@ composition_options = [
 ]
     
 # === KIA/WIA Logic ===
-def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+def calculate_kia_ratio(med, logi, cmd, dominance, base_slider=0.30):
+    """
+    Dynamic KIA ratio based on medical, logistics, command and dominance.
+    Includes human slider as baseline adjustment.
+    """
+    # Cap inputs
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
 
+    # Health-related penalties
     medical_penalty = (1 - med) ** 1.2
     logistics_penalty = (1 - (logi / 1.5)) ** 0.8
     commander_bonus = cmd * 0.3
 
-    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    # Dynamic suppression/morale dominance effects
+    suppression_mod = dominance.get("suppression_mod", 1.0)
+    efficiency_mod = dominance.get("efficiency_mod", 1.0)
+
+    # Combine with slider baseline
+    adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    adjusted *= (1 + 0.25 * (1 - efficiency_mod))  # worse efficiency = more fatalities
+    adjusted *= (1 + 0.2 * (1 - suppression_mod))  # less suppression = more exposure
+
     return min(max(adjusted, 0.15), 0.75)
 
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
@@ -353,7 +367,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
                   weapon_quality, training, cohesion, weapons):
     
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
-    kia_ratio = calculate_kia_ratio(med, logi, cmd)
+    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=kia_ratio)
 
     # 🔄 Compute deltas for dominance comparison
     if flag == "🇷🇺":
