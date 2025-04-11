@@ -518,13 +518,15 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
-# === Execute Final Force Display ===
 # === Render Force Displays ===
+
+# Russian
 display_force("🇷🇺", "Russian",
               base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
               weapon_quality_rus, train_rus, coh_rus, weapons)
 
+# Ukrainian
 display_force("🇺🇦", "Ukrainian",
               base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
