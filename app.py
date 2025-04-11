@@ -228,14 +228,14 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
-                  weap_q, train, cohesion, kia_ratio, weapons):
+                  weapon_quality, train, cohesion, kia_ratio, weapons):
     
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
     # 🛠️ Correct argument structure
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, cohesion, weapons
+        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, cohesion, weapons
     )
 
     df = pd.DataFrame({
@@ -267,7 +267,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 from collections import OrderedDict
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
-                                s2s, ad_density, ew_cover, ad_ready, weap_quality, training, cohesion, weapons):
+                                s2s, ad_density, ew_cover, ad_ready, weapon_quality, training, cohesion, weapons):
     results, total = OrderedDict(), OrderedDict()
 
     total_share = sum(weapons.values())
@@ -431,13 +431,13 @@ def plot_daily_curve(title, daily_range, duration):
 
 # === Display Function with KIA/WIA, Debug and Dual Charting ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, weapons):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
     # Call the updated casualty model function
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
+        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, weapons
     )
 
     # Build display DataFrame
