@@ -50,38 +50,38 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
 # === WIA to KIA Ratios ===
 def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
     """
-    Computes realistic WIA and KIA values based on total casualties and adjusted KIA ratio.
-    Applies dominance-modified pressure to tweak WIA ratio upwards (suppression = fewer wounded).
-    Ensures WIA ≥ KIA and WIA + KIA ≤ total.
+    Computes KIA and WIA distribution with enforced realism:
+    - Always at least 1:1 WIA to KIA.
+    - Adjusts WIA scaling down slightly if suppression is high.
+    - Prevents exceeding total casualties.
     """
+
     # Step 1: Base KIA calculation
     kia_min = round(total_min * kia_ratio)
     kia_max = round(total_max * kia_ratio)
 
-    # Step 2: Start with 1:1 WIA to KIA base
+    # Step 2: Start with WIA = KIA (base assumption)
     wia_min = kia_min
     wia_max = kia_max
 
-    # Step 3: Apply dominance/suppression pressure to reduce WIA
+    # Step 3: Suppression scaling (adjust down WIA if evac is suppressed)
     if dominance_mods:
         suppression_mod = dominance_mods.get("suppression_mod", 1.0)
         efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
         pressure = (suppression_mod + efficiency_mod) / 2
 
-        # More suppression = fewer WIA (worse medevac), starts from 1.4x and tapers to 1.0
+        # More suppression → fewer evac, higher KIA
         wia_multiplier = max(1.0, 1.4 - 0.4 * pressure)
         wia_min = round(kia_min * wia_multiplier)
         wia_max = round(kia_max * wia_multiplier)
 
-    # Step 4: Clamp to realism — WIA ≥ KIA and WIA + KIA ≤ Total
-    total_cap_min = max(kia_min + 1, total_min - kia_min)
-    total_cap_max = max(kia_max + 1, total_max - kia_max)
+    # Step 4: Prevent WIA + KIA from exceeding total casualties
+    wia_min = min(wia_min, total_min - kia_min)
+    wia_max = min(wia_max, total_max - kia_max)
 
+    # Step 5: Enforce WIA ≥ KIA
     wia_min = max(wia_min, kia_min)
     wia_max = max(wia_max, kia_max)
-
-    wia_min = min(wia_min, total_cap_min)
-    wia_max = min(wia_max, total_cap_max)
 
     return kia_min, kia_max, wia_min, wia_max
 
