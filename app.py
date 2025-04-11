@@ -18,24 +18,30 @@ def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
 
 def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
     """
-    Calculates adjusted KIA ratio under influence of medical support, logistics, commander effectiveness,
-    and strategic dominance deltas.
+    Balanced KIA ratio that softens over-dominance and avoids overshoot.
     """
-    # --- Core penalties ---
+    # --- Cap & normalize inputs
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
 
-    medical_penalty = (1 - med) ** 1.2
+    # --- Base survival impact
+    medical_penalty = (1 - med) ** 1.1
     logistics_penalty = (1 - (logi / 1.5)) ** 0.8
-    commander_bonus = cmd * 0.3
+    commander_bonus = cmd * 0.25
 
-    # --- Strategic scaling: push KIA ratio higher under suppression
+    # --- Strategic dominance impact
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
     efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
 
-    dominance_effect = max(suppression_mod + efficiency_mod - 2.0, 0)
-    delta_penalty = 1 + 0.4 * dominance_effect ** 1.1  # nonlinear
+    # Combine and dampen effect
+    dominance_penalty = ((suppression_mod + efficiency_mod) / 2 - 1) * 0.5  # reduced weight
+
+    # --- Final KIA ratio
+    adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus + dominance_penalty)
+
+    # Clip to realism
+    return min(max(adjusted, 0.20), 0.60)
 
     # --- Final composition
     adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus) * delta_penalty
