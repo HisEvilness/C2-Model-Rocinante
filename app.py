@@ -252,53 +252,6 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
     adjusted = base_ratio + med_penalty + logi_penalty - cmd_bonus
     return min(max(adjusted, 0.22), 0.55)
 
-# === Casualty Calculation Logic ===
-def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
-                  weapon_quality, training, cohesion, weapons):
-
-    modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
-
-    # Compute dynamic KIA ratio for this force
-    kia_ratio = calculate_kia_ratio(med, logi, cmd)
-
-    # Compute relative dominance based on slider deltas
-    if flag == "🇷🇺":
-        deltas = compute_relative_dominance(cmd, cmd_ukr, logi, logi_ukr, moral, moral_ukr)
-    else:
-        deltas = compute_relative_dominance(cmd, cmd_rus, logi, logi_rus, moral, moral_rus)
-
-    # Calculate daily and total casualties
-    daily_range, cumulative_range = calculate_casualties_range(
-        base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, training, cohesion, weapons, deltas
-    )
-
-    df = pd.DataFrame({
-        "Daily Min": {k: v[0] for k, v in daily_range.items()},
-        "Daily Max": {k: v[1] for k, v in daily_range.items()},
-        "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
-        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
-    })
-
-    st.header(f"{flag} {name} Forces")
-    st.dataframe(df)
-
-    total_min = sum(v[0] for v in cumulative_range.values())
-    total_max = sum(v[1] for v in cumulative_range.values())
-
-    kia_min = round(total_min * kia_ratio)
-    kia_max = round(total_max * kia_ratio)
-    wia_min = round(total_min - kia_min)
-    wia_max = round(total_max - kia_max)
-
-    st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
-    st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
-    st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
-
-    plot_casualty_chart(name, daily_range, cumulative_range)
-    plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
-
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
 from collections import OrderedDict
 
@@ -374,6 +327,53 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         total[system] = (round(daily_min * duration), round(daily_max * duration))
 
     return results, total
+
+# === Casualty Calculation Logic ===
+def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
+                  weapon_quality, training, cohesion, weapons):
+
+    modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
+
+    # Compute dynamic KIA ratio for this force
+    kia_ratio = calculate_kia_ratio(med, logi, cmd)
+
+    # Compute relative dominance based on slider deltas
+    if flag == "🇷🇺":
+        deltas = compute_relative_dominance(cmd, cmd_ukr, logi, logi_ukr, moral, moral_ukr)
+    else:
+        deltas = compute_relative_dominance(cmd, cmd_rus, logi, logi_rus, moral, moral_rus)
+
+    # Calculate daily and total casualties
+    daily_range, cumulative_range = calculate_casualties_range(
+        base, modifier, duration, ew_enemy, med, cmd, moral, logi,
+        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, training, cohesion, weapons, deltas
+    )
+
+    df = pd.DataFrame({
+        "Daily Min": {k: v[0] for k, v in daily_range.items()},
+        "Daily Max": {k: v[1] for k, v in daily_range.items()},
+        "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
+        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
+    })
+
+    st.header(f"{flag} {name} Forces")
+    st.dataframe(df)
+
+    total_min = sum(v[0] for v in cumulative_range.values())
+    total_max = sum(v[1] for v in cumulative_range.values())
+
+    kia_min = round(total_min * kia_ratio)
+    kia_max = round(total_max * kia_ratio)
+    wia_min = round(total_min - kia_min)
+    wia_max = round(total_max - kia_max)
+
+    st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
+    st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
+    st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
+
+    plot_casualty_chart(name, daily_range, cumulative_range)
+    plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
 # === Daily Casualty Curve Chart ===
 def plot_daily_curve(title, daily_range, duration):
