@@ -570,5 +570,4 @@ display_force("🇺🇦", "Ukrainian",
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
               weapon_quality_ukr, train_ukr, coh_ukr, weapons, kia_ratio)
 
-
 # === Historical Conflict Benchmarks & Comparison ===
