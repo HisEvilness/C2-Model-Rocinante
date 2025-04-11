@@ -38,21 +38,22 @@ def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
     kia_min = round(total_min * kia_ratio)
     kia_max = round(total_max * kia_ratio)
 
-    base_ratio = 1.0
+    # Enforce minimum WIA to KIA ratio
+    min_wia_ratio = 1.25
     if dominance_mods:
         suppression_mod = dominance_mods.get("suppression_mod", 1.0)
         efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
         pressure = (suppression_mod + efficiency_mod) / 2
-        base_ratio = min(1.4, 1.0 + 0.5 * (1.1 - pressure))
+        min_wia_ratio = min(1.6, 1.1 + 0.5 * (1.0 - pressure))
 
-    raw_wia_min = round(kia_min * base_ratio)
-    raw_wia_max = round(kia_max * base_ratio)
+    wia_min = max(kia_min, round(kia_min * min_wia_ratio))
+    wia_max = max(kia_max, round(kia_max * min_wia_ratio))
 
-    # Ensure WIA is not less than KIA unless impossible
-    wia_min = max(kia_min, min(raw_wia_min, total_min - kia_min))
-    wia_max = max(kia_max, min(raw_wia_max, total_max - kia_max))
+    # Cap so we don’t overshoot
+    wia_min = min(wia_min, total_min - kia_min)
+    wia_max = min(wia_max, total_max - kia_max)
 
-    # Ensure total always sums up properly
+    # Adjust if sum is under total
     if kia_min + wia_min < total_min:
         wia_min = total_min - kia_min
     if kia_max + wia_max < total_max:
@@ -398,7 +399,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
                   weapon_quality, training, cohesion, weapons, base_slider):
-    
+
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
     # 🔄 Compute deltas for dominance comparison
@@ -413,7 +414,9 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 
     # 💡 Calculate modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
-    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=base_slider)
+
+    # 🧮 Compute KIA ratio dynamically, using slider as base
+    kia_ratio_final = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=base_slider)
 
     # 📊 Run the updated casualty calculation
     daily_range, cumulative_range = calculate_casualties_range(
@@ -425,7 +428,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 🧮 WIA/KIA split from model
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
-    kia_min, kia_max, wia_min, wia_max = compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods)
+    kia_min, kia_max, wia_min, wia_max = compute_wia_kia_split(total_min, total_max, kia_ratio_final, dominance_mods)
 
     # 🖥️ Display
     df = pd.DataFrame({
@@ -440,6 +443,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
+    st.metric("KIA Ratio Used", f"{kia_ratio_final:.2f}")
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
