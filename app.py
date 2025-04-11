@@ -50,38 +50,36 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
 # === WIA to KIA Ratios ===
 def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
     """
-    Computes KIA and WIA distribution with enforced realism:
-    - Always at least 1:1 WIA to KIA.
-    - Adjusts WIA scaling down slightly if suppression is high.
-    - Prevents exceeding total casualties.
+    Ensures KIA + WIA ≈ Total Casualties with realistic wounding distribution.
     """
-
-    # Step 1: Base KIA calculation
+    # Step 1: Base KIA numbers
     kia_min = round(total_min * kia_ratio)
     kia_max = round(total_max * kia_ratio)
 
-    # Step 2: Start with WIA = KIA (base assumption)
-    wia_min = kia_min
-    wia_max = kia_max
+    # Step 2: Base WIA multiplier (starts at 1:1)
+    wia_multiplier = 1.2
 
-    # Step 3: Suppression scaling (adjust down WIA if evac is suppressed)
     if dominance_mods:
         suppression_mod = dominance_mods.get("suppression_mod", 1.0)
         efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
-        pressure = (suppression_mod + efficiency_mod) / 2
+        dominance = (suppression_mod + efficiency_mod) / 2
 
-        # More suppression → fewer evac, higher KIA
-        wia_multiplier = max(1.0, 1.75 - 0.5 * pressure)
-        wia_min = round(kia_min * wia_multiplier)
-        wia_max = round(kia_max * wia_multiplier)
+        # Under high suppression, WIA chances drop
+        wia_multiplier = max(1.0, 1.6 - 0.6 * dominance)
 
-    # Step 4: Prevent WIA + KIA from exceeding total casualties
-    wia_min = min(wia_min, total_min - kia_min)
-    wia_max = min(wia_max, total_max - kia_max)
+    # Step 3: Compute WIA
+    raw_wia_min = round(kia_min * wia_multiplier)
+    raw_wia_max = round(kia_max * wia_multiplier)
 
-    # Step 5: Enforce WIA ≥ KIA
-    wia_min = max(wia_min, kia_min)
-    wia_max = max(wia_max, kia_max)
+    # Step 4: Cap to remaining casualty margin
+    wia_min = min(raw_wia_min, total_min - kia_min)
+    wia_max = min(raw_wia_max, total_max - kia_max)
+
+    # Step 5: Fallback: ensure total = KIA + WIA
+    if kia_min + wia_min < total_min:
+        wia_min = total_min - kia_min
+    if kia_max + wia_max < total_max:
+        wia_max = total_max - kia_max
 
     return kia_min, kia_max, wia_min, wia_max
 
