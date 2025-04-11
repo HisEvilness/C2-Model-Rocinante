@@ -431,16 +431,16 @@ def plot_daily_curve(title, daily_range, duration):
 
 # === Display Function with KIA/WIA, Debug and Dual Charting ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, weapons):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
+                  weapon_quality, training, cohesion, kia_ratio, weapons):
+
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
-    # Call the updated casualty model function
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, weapons
+        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, training, cohesion, weapons
     )
 
-    # Build display DataFrame
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -451,33 +451,28 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
 
-    # Compute totals
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
 
-    # Apply KIA ratio logic
-    kia_r = calculate_kia_ratio(med, logi, cmd)
-    kia_min = round(total_min * kia_r)
-    kia_max = round(total_max * kia_r)
+    kia_min = round(total_min * kia_ratio)
+    kia_max = round(total_max * kia_ratio)
     wia_min = round(total_min - kia_min)
     wia_max = round(total_max - kia_max)
 
-    # Display totals
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
 
-    # Charts
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
 # === Render Outputs ===
 display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-              weap_rus, train_rus, coh_rus, kia_ratio, weapons)
+              weapon_quality_rus, train_rus, coh_rus, kia_ratio, weapons)
 
 display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-              weap_ukr, train_ukr, coh_ukr, kia_ratio, weapons)
+              weapon_quality_ukr, train_ukr, coh_ukr, kia_ratio, weapons)
 
 # === Historical Conflict Benchmarks & Comparison ===
