@@ -71,7 +71,7 @@ def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
         pressure = (suppression_mod + efficiency_mod) / 2
 
         # More suppression → fewer evac, higher KIA
-        wia_multiplier = max(1.0, 1.4 - 0.4 * pressure)
+        wia_multiplier = max(1.0, 1.75 - 0.5 * pressure)
         wia_min = round(kia_min * wia_multiplier)
         wia_max = round(kia_max * wia_multiplier)
 
