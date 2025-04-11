@@ -15,67 +15,42 @@ def medical_scaling(med, morale, logi):
     return penalty * morale_adj * compound
 
 def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
-
+    
+# === KIA Ratios ===
 def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
-    """
-    Balanced KIA ratio that softens over-dominance and avoids overshoot.
-    """
-    # --- Cap & normalize inputs
     med = min(max(med, 0.01), 1.0)
     logi = min(max(logi, 0.01), 1.5)
     cmd = min(max(cmd, 0.0), 0.5)
 
-    # --- Base survival impact
     medical_penalty = (1 - med) ** 1.1
     logistics_penalty = (1 - (logi / 1.5)) ** 0.8
     commander_bonus = cmd * 0.25
 
-    # --- Strategic dominance impact
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
     efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
+    dominance_penalty = ((suppression_mod + efficiency_mod) / 2 - 1) * 0.5
 
-    # Combine and dampen effect
-    dominance_penalty = ((suppression_mod + efficiency_mod) / 2 - 1) * 0.5  # reduced weight
-
-    # --- Final KIA ratio
     adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus + dominance_penalty)
-
-    # Clip to realism
     return min(max(adjusted, 0.20), 0.60)
-
-    # --- Final composition
-    adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus) * delta_penalty
-    return min(max(adjusted, 0.12), 0.75)
 
 # === WIA to KIA Ratios ===
 def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
-    """
-    Ensures KIA + WIA ≈ Total Casualties with realistic wounding distribution.
-    """
-    # Step 1: Base KIA numbers
     kia_min = round(total_min * kia_ratio)
     kia_max = round(total_max * kia_ratio)
 
-    # Step 2: Base WIA multiplier (starts at 1:1)
-    wia_multiplier = 1.2
-
+    base_ratio = 1.0
     if dominance_mods:
         suppression_mod = dominance_mods.get("suppression_mod", 1.0)
         efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
-        dominance = (suppression_mod + efficiency_mod) / 2
+        pressure = (suppression_mod + efficiency_mod) / 2
+        base_ratio = min(1.4, 1.0 + 0.5 * (1.1 - pressure))  # floor 1.0, cap 1.4
 
-        # Under high suppression, WIA chances drop
-        wia_multiplier = max(1.0, 1.6 - 0.6 * dominance)
+    raw_wia_min = round(kia_min * base_ratio)
+    raw_wia_max = round(kia_max * base_ratio)
 
-    # Step 3: Compute WIA
-    raw_wia_min = round(kia_min * wia_multiplier)
-    raw_wia_max = round(kia_max * wia_multiplier)
-
-    # Step 4: Cap to remaining casualty margin
     wia_min = min(raw_wia_min, total_min - kia_min)
     wia_max = min(raw_wia_max, total_max - kia_max)
 
-    # Step 5: Fallback: ensure total = KIA + WIA
     if kia_min + wia_min < total_min:
         wia_min = total_min - kia_min
     if kia_max + wia_max < total_max:
