@@ -36,6 +36,28 @@ def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, 
         "morale_delta": moral_rus - moral_ukr
     }
 
+def compute_dominance_modifiers(deltas):
+    """
+    Converts dominance deltas into balanced multipliers affecting casualty suppression and system efficiency.
+    - Boosts for positive advantage
+    - Penalties for negative delta
+    - Soft caps to avoid overpowering
+    """
+    def scale(delta, base=1.0, strength=0.10, cap=0.15):
+        return base + math.tanh(delta) * min(abs(delta) * strength, cap)
+
+    # Extract deltas
+    cmd_delta = deltas.get("cmd_delta", 0)
+    logi_delta = deltas.get("logi_delta", 0)
+    morale_delta = deltas.get("morale_delta", 0)
+    ad_delta = deltas.get("ad_delta", 0)
+    ew_delta = deltas.get("ew_delta", 0)
+
+    return {
+        "suppression_mod": scale(cmd_delta + logi_delta, base=1.0, strength=0.08, cap=0.12),
+        "efficiency_mod": scale(morale_delta + ad_delta + ew_delta, base=1.0, strength=0.07, cap=0.10)
+    }
+
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
 st.markdown("""
@@ -270,10 +292,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         st.warning("No active weapon systems. Please enable at least one.")
         return {}, {}
 
-    # Extract relative dominance
-    cmd_delta = deltas.get("cmd_delta", 0)
-    logi_delta = deltas.get("logi_delta", 0)
-    morale_delta = deltas.get("morale_delta", 0)
+    # Compute dominance scaling modifiers
+    dominance_mods = compute_dominance_modifiers(deltas)
+    suppression_mod = dominance_mods["suppression_mod"]
+    efficiency_mod = dominance_mods["efficiency_mod"]
 
     for system, share in weapons.items():
         if share == 0:
@@ -294,10 +316,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         ad_penalty = min(max((1 - ad_density * ad_ready), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
         coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
-        # === Combined efficiency
+        # === Combined system efficiency
         raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weapon_quality
         system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
-        system_eff = max(system_eff, 0.35)
+        system_eff = max(system_eff * efficiency_mod, 0.35)
 
         # === Suppression scaling with capped cohesion and training
         capped_training = min(training, 1.2)
@@ -305,15 +327,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base_suppression = 1 - (0.03 + 0.05 * cmd)
         training_bonus = 1 + 0.05 * capped_training
         cohesion_factor = 0.98 + 0.03 * capped_cohesion
-        suppression = base_suppression * training_bonus * cohesion_factor
-
-        # === Apply relative disadvantage (only if negative)
-        if cmd_delta < 0:
-            suppression *= (1 + 0.05 * abs(cmd_delta))
-        if logi_delta < 0:
-            suppression *= (1 + 0.04 * abs(logi_delta))
-        if morale_delta < 0:
-            system_eff *= (1 - 0.03 * abs(morale_delta))
+        suppression = base_suppression * training_bonus * cohesion_factor * suppression_mod
 
         # === Medical and logistics scaling
         med_factor = medical_scaling(med, moral, logi)
@@ -337,22 +351,25 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
                   weapon_quality, training, cohesion, weapons):
-
+    
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
-
-    # Compute dynamic KIA ratio for this force
     kia_ratio = calculate_kia_ratio(med, logi, cmd)
 
-    # Compute relative dominance based on slider deltas
+    # 🔄 Compute deltas for dominance comparison
     if flag == "🇷🇺":
         deltas = compute_relative_dominance(cmd, cmd_ukr, logi, logi_ukr, moral, moral_ukr)
+        deltas["ad_delta"] = ad_density_rus - ad_density_ukr
+        deltas["ew_delta"] = ew_cover_rus - ew_cover_ukr
     else:
         deltas = compute_relative_dominance(cmd, cmd_rus, logi, logi_rus, moral, moral_rus)
+        deltas["ad_delta"] = ad_density_ukr - ad_density_rus
+        deltas["ew_delta"] = ew_cover_ukr - ew_cover_rus
 
-    # Calculate daily and total casualties
+    # 📊 Run the updated casualty calculation
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, training, cohesion, weapons, deltas
+        s2s, ad_dens, ew_cov, ad_ready,
+        weapon_quality, training, cohesion, weapons, deltas
     )
 
     df = pd.DataFrame({
