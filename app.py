@@ -218,11 +218,11 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
 
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weap_q, train
+        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
     )
 
     df = pd.DataFrame({
@@ -238,10 +238,9 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
 
-    # ✅ Dynamic KIA calculation
-    kia_r = calculate_kia_ratio(med, logi, cmd)
-    kia_min = round(total_min * kia_r)
-    kia_max = round(total_max * kia_r)
+    # 🔁 Uses static slider-based KIA ratio
+    kia_min = round(total_min * kia_ratio)
+    kia_max = round(total_max * kia_ratio)
     wia_min = round(total_min - kia_min)
     wia_max = round(total_max - kia_max)
 
