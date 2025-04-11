@@ -2,11 +2,39 @@ import streamlit as st
 import pandas as pd
 import math
 import altair as alt
+from collections import OrderedDict
 
+# === Utility Functions ===
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
 def logistic_scaling(l): return 0.5 + 0.5 * l
-def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
+
+def medical_scaling(med, morale, logi):
+    penalty = 1 + (1.2 * (1 - med)) ** 1.1
+    morale_adj = 1 + 0.1 * (morale - 1)
+    compound = 1 + 0.15 * (1 - logi) if logi < 0.75 else 1.0
+    return penalty * morale_adj * compound
+
 def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
+
+def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
+    med = min(max(med, 0.01), 1.0)
+    logi = min(max(logi, 0.01), 1.5)
+    cmd = min(max(cmd, 0.0), 0.5)
+
+    medical_penalty = (1 - med) ** 1.2
+    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
+    commander_bonus = cmd * 0.3
+
+    adjusted = base_ratio * (1 + medical_penalty + logistics_penalty - commander_bonus)
+    return min(max(adjusted, 0.15), 0.75)
+
+# === Relative Advantage Calculation ===
+def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
+    return {
+        "cmd_delta": cmd_rus - cmd_ukr,
+        "logi_delta": logi_rus - logi_ukr,
+        "morale_delta": moral_rus - moral_ukr
+    }
 
 # Title and Intro
 st.title("Casualty Dashboard: Russo-Ukrainian Conflict")
@@ -227,14 +255,23 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
-                  weapon_quality, train, cohesion, kia_ratio, weapons):
-    
+                  weapon_quality, training, cohesion, weapons):
+
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
-    # 🛠️ Correct argument structure
+    # Compute dynamic KIA ratio for this force
+    kia_ratio = calculate_kia_ratio(med, logi, cmd)
+
+    # Compute relative dominance based on slider deltas
+    if flag == "🇷🇺":
+        deltas = compute_relative_dominance(cmd, cmd_ukr, logi, logi_ukr, moral, moral_ukr)
+    else:
+        deltas = compute_relative_dominance(cmd, cmd_rus, logi, logi_rus, moral, moral_rus)
+
+    # Calculate daily and total casualties
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, train, cohesion, weapons
+        s2s, ad_dens, ew_cov, ad_ready, weapon_quality, training, cohesion, weapons, deltas
     )
 
     df = pd.DataFrame({
@@ -266,13 +303,19 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 from collections import OrderedDict
 
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
-                                s2s, ad_density, ew_cover, ad_ready, weapon_quality, training, cohesion, weapons):
+                                s2s, ad_density, ew_cover, ad_ready,
+                                weapon_quality, training, cohesion, weapons,
+                                deltas):
     results, total = OrderedDict(), OrderedDict()
-
     total_share = sum(weapons.values())
     if total_share == 0:
         st.warning("No active weapon systems. Please enable at least one.")
         return {}, {}
+
+    # Extract relative dominance
+    cmd_delta = deltas.get("cmd_delta", 0)
+    logi_delta = deltas.get("logi_delta", 0)
+    morale_delta = deltas.get("morale_delta", 0)
 
     for system, share in weapons.items():
         if share == 0:
@@ -280,11 +323,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         base_share = share / total_share
 
-        # === Efficiency Factors ===
-        logi_factor = logistic_scaling(logi)
-        cmd_factor = commander_scaling(cmd)
-
-        # System-specific scaling
+        # === System-specific scaling
         if system == "Artillery":
             system_scaling = logistic_scaling(logi) * 0.95
         elif system == "Drones":
@@ -293,32 +332,36 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         else:
             system_scaling = 1.0
 
-        # Coordination & denial multipliers
         ew_penalty = 1.0 if system == "Air Strikes" else (0.75 if system == "Drones" else 1.0)
         ad_penalty = min(max((1 - ad_density * ad_ready), 0.75), 1.05) if system in ["Drones", "Air Strikes"] else 1.0
         coordination = min(max(s2s, 0.85), 1.10) if system in ["Artillery", "Air Strikes", "Drones"] else 1.0
 
-        # === Combined capped efficiency
+        # === Combined efficiency
         raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weapon_quality
         system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff, 0.35)
 
-        # === Suppression logic (controlled elite scaling)
+        # === Suppression scaling with capped cohesion and training
         capped_training = min(training, 1.2)
         capped_cohesion = min(cohesion, 1.15)
-
         base_suppression = 1 - (0.03 + 0.05 * cmd)
         training_bonus = 1 + 0.05 * capped_training
         cohesion_factor = 0.98 + 0.03 * capped_cohesion
         suppression = base_suppression * training_bonus * cohesion_factor
 
+        # === Apply relative disadvantage (only if negative)
+        if cmd_delta < 0:
+            suppression *= (1 + 0.05 * abs(cmd_delta))
+        if logi_delta < 0:
+            suppression *= (1 + 0.04 * abs(logi_delta))
+        if morale_delta < 0:
+            system_eff *= (1 - 0.03 * abs(morale_delta))
+
         # === Medical and logistics scaling
         med_factor = medical_scaling(med, moral, logi)
 
-        # === Core casualty computation
+        # === Final casualty computation
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
-
-        # Controlled decay
         decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
         base_resistance = morale_scaling(moral) * logistic_scaling(logi) * (training ** 1.05)
         decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.65)
@@ -470,13 +513,15 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
-# === Render Outputs ===
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
+# === Execute Final Force Display ===
+display_force("🇷🇺", "Russian",
+              base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-              weapon_quality_rus, train_rus, coh_rus, kia_ratio, weapons)
+              weapon_quality_rus, train_rus, coh_rus, weapons)
 
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
+display_force("🇺🇦", "Ukrainian",
+              base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-              weapon_quality_ukr, train_ukr, coh_ukr, kia_ratio, weapons)
+              weapon_quality_ukr, train_ukr, coh_ukr, weapons)
 
 # === Historical Conflict Benchmarks & Comparison ===
