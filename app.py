@@ -47,6 +47,33 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
     adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus) * delta_penalty
     return min(max(adjusted, 0.12), 0.75)
 
+# === WIA to KIA Ratios ===
+def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
+    # Step 1: Base KIA calculation
+    kia_min = round(total_min * kia_ratio)
+    kia_max = round(total_max * kia_ratio)
+
+    # Step 2: Start with 1:1 base
+    wia_min = kia_min
+    wia_max = kia_max
+
+    # Step 3: Apply delta-based "wounding multiplier"
+    if dominance_mods:
+        suppression_mod = dominance_mods.get("suppression_mod", 1.0)
+        efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
+        pressure = (suppression_mod + efficiency_mod) / 2
+
+        # More suppression = fewer WIA, more KIA due to failed evac
+        wia_multiplier = max(1.0, 1.4 - 0.4 * pressure)  # soft floor at 1.0
+        wia_min = round(kia_min * wia_multiplier)
+        wia_max = round(kia_max * wia_multiplier)
+
+    # Step 4: Ensure WIA + KIA doesn't exceed total
+    wia_min = min(wia_min, total_min - kia_min)
+    wia_max = min(wia_max, total_max - kia_max)
+
+    return kia_min, kia_max, wia_min, wia_max
+
 # === Relative Advantage Calculation ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
     return {
@@ -388,7 +415,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
-    # 🔄 Compute relative dominance deltas
+    # 🔄 Compute deltas for dominance comparison
     if flag == "🇷🇺":
         deltas = compute_relative_dominance(cmd, cmd_ukr, logi, logi_ukr, moral, moral_ukr)
         deltas["ad_delta"] = ad_density_rus - ad_density_ukr
@@ -398,16 +425,23 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
         deltas["ad_delta"] = ad_density_ukr - ad_density_rus
         deltas["ew_delta"] = ew_cover_ukr - ew_cover_rus
 
+    # 💡 Calculate modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
-    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider)
+    kia_ratio = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=base_slider)
 
-    # 📊 Run casualty model
+    # 📊 Run the updated casualty calculation
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready,
         weapon_quality, training, cohesion, weapons, deltas
     )
 
+    # 🧮 WIA/KIA split from model
+    total_min = sum(v[0] for v in cumulative_range.values())
+    total_max = sum(v[1] for v in cumulative_range.values())
+    kia_min, kia_max, wia_min, wia_max = compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods)
+
+    # 🖥️ Display
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
@@ -417,15 +451,6 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 
     st.header(f"{flag} {name} Forces")
     st.dataframe(df)
-
-    total_min = sum(v[0] for v in cumulative_range.values())
-    total_max = sum(v[1] for v in cumulative_range.values())
-
-    kia_min = round(total_min * kia_ratio)
-    kia_max = round(total_max * kia_ratio)
-    wia_min = round(total_min - kia_min)
-    wia_max = round(total_max - kia_max)
-
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
