@@ -43,14 +43,16 @@ def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
         suppression_mod = dominance_mods.get("suppression_mod", 1.0)
         efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
         pressure = (suppression_mod + efficiency_mod) / 2
-        base_ratio = min(1.4, 1.0 + 0.5 * (1.1 - pressure))  # floor 1.0, cap 1.4
+        base_ratio = min(1.4, 1.0 + 0.5 * (1.1 - pressure))
 
     raw_wia_min = round(kia_min * base_ratio)
     raw_wia_max = round(kia_max * base_ratio)
 
-    wia_min = min(raw_wia_min, total_min - kia_min)
-    wia_max = min(raw_wia_max, total_max - kia_max)
+    # Ensure WIA is not less than KIA unless impossible
+    wia_min = max(kia_min, min(raw_wia_min, total_min - kia_min))
+    wia_max = max(kia_max, min(raw_wia_max, total_max - kia_max))
 
+    # Ensure total always sums up properly
     if kia_min + wia_min < total_min:
         wia_min = total_min - kia_min
     if kia_max + wia_max < total_max:
