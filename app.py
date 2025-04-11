@@ -156,6 +156,15 @@ def adjusted_posture(posture, resilience, baseline=1.0):
 posture_rus_adj = adjusted_posture(posture_rus, res_rus)
 posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
 
+def medical_scaling(med, morale, logi):
+    """
+    Calculates how medical efficiency, morale, and logistics affect survival.
+    """
+    penalty = 1 + (1.2 * (1 - med)) ** 1.1
+    morale_adj = 1 + 0.1 * (morale - 1)
+    compound = 1 + 0.15 * (1 - logi) if logi < 0.75 else 1.0
+    return penalty * morale_adj * compound
+
 intensity_map = {
     1: (20, 600),
     2: (50, 1000),
@@ -297,11 +306,14 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff = max(system_eff, 0.35)
 
         # Suppression & medical efficiency
-        suppression = (1 - (0.04 + 0.06 * cmd)) * (0.90 + 0.05 * training + 0.05 * cohesion)
-        med_factor = (1 + (1 - med) ** 1.2) * (1 + 0.08 * (morale_scaling(moral) - 1))
+        base_suppression = 1 - (0.03 + 0.05 * cmd)  # mild but stable
+        training_bonus = 1 + 0.05 * training
+        cohesion_factor = 0.98 + 0.03 * cohesion
+
+        suppression = base_suppression * training_bonus * cohesion_factor
 
         # Core computation
-        base = base_rate * base_share * system_eff * modifier * med_factor * suppression
+        base = base_rate * base_share * system_eff * modifier * medical_scaling(med, moral, logi) * suppression
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
         daily_max = round(daily_base * 1.05, 1)
