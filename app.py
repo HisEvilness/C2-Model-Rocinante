@@ -444,7 +444,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
     st.metric("KIA Ratio Used", f"{kia_ratio_final:.2f}")
-
+   
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
