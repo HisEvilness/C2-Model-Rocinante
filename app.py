@@ -218,11 +218,15 @@ def calculate_kia_ratio(med, logi, cmd, base_ratio=0.30):
 
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
-                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready, weap_q, train, kia_ratio):
+                  enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
+                  weap_q, train, cohesion, kia_ratio, weapons):
+    
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
+
+    # 🛠️ Correct argument structure
     daily_range, cumulative_range = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
-        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, weapons
+        s2s, ad_dens, ew_cov, ad_ready, weap_q, train, cohesion, weapons
     )
 
     df = pd.DataFrame({
@@ -238,7 +242,6 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
 
-    # 🔁 Uses static slider-based KIA ratio
     kia_min = round(total_min * kia_ratio)
     kia_max = round(total_max * kia_ratio)
     wia_min = round(total_min - kia_min)
@@ -452,12 +455,12 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
 # === Render Outputs ===
-display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus,
-              med_rus, logi_rus, duration_days, exp_ukr, ew_rus, s2s_rus,
-              ad_density_rus, ew_cover_rus, ad_ready_rus, weap_rus, train_rus, weapons)
+display_force("🇷🇺", "Russian", base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
+              exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
+              weap_rus, train_rus, coh_rus, kia_ratio, weapons)
 
-display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr,
-              med_ukr, logi_ukr, duration_days, exp_rus, ew_ukr, s2s_ukr,
-              ad_density_ukr, ew_cover_ukr, ad_ready_ukr, weap_ukr, train_ukr, weapons)
+display_force("🇺🇦", "Ukrainian", base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
+              exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
+              weap_ukr, train_ukr, coh_ukr, kia_ratio, weapons)
 
 # === Historical Conflict Benchmarks & Comparison ===
