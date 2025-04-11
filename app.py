@@ -178,13 +178,13 @@ base_ukr *= posture_ukr_adj
 
 # === Weapon Shares ===
 share_values = {
-    "Artillery": 0.63,
-    "Drones": 0.10,
+    "Artillery": 0.62,
+    "Drones": 0.13,
     "Snipers": 0.01,
     "Small Arms": 0.05,
     "Heavy Weapons": 0.04,
-    "Armored Vehicles": 0.07,
-    "Air Strikes": 0.10
+    "Armored Vehicles": 0.06,
+    "Air Strikes": 0.09
 }
 
 weapons = {
@@ -303,10 +303,13 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff, 0.35)
 
-        # === Suppression logic
+        # === Suppression logic (controlled elite scaling)
+        capped_training = min(training, 1.2)
+        capped_cohesion = min(cohesion, 1.15)
+
         base_suppression = 1 - (0.03 + 0.05 * cmd)
-        training_bonus = 1 + 0.05 * training
-        cohesion_factor = 0.98 + 0.03 * cohesion
+        training_bonus = 1 + 0.05 * capped_training
+        cohesion_factor = 0.98 + 0.03 * capped_cohesion
         suppression = base_suppression * training_bonus * cohesion_factor
 
         # === Medical and logistics scaling
@@ -314,9 +317,11 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         # === Core casualty computation
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
+
+        # Controlled decay
         decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
-        base_resistance = morale_scaling(moral) * logistic_scaling(logi) * training
-        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.6)
+        base_resistance = morale_scaling(moral) * logistic_scaling(logi) * (training ** 1.05)
+        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.65)
 
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
