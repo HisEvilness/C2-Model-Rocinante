@@ -95,12 +95,12 @@ with st.sidebar:
     logi_rus = st.slider("Logistics Effectiveness (RU)", 0.5, 1.5, 1.10, step=0.01)
 
     st.subheader("🇺🇦 Ukrainian Modifiers")
-    exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
-    ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.45, step=0.01)
-    cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.12, step=0.01)
-    med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.43, step=0.01)
+    exp_ukr = st.slider("Experience Factor (UA)", 0.5, 1.5, 0.75, step=0.01)
+    ew_ukr = st.slider("EW Effectiveness vs Russia", 0.1, 1.5, 0.40, step=0.01)
+    cmd_ukr = st.slider("Commander Efficiency (UA)", 0.0, 0.5, 0.10, step=0.01)
+    med_ukr = st.slider("Medical Support (UA)", 0.0, 1.0, 0.40, step=0.01)
     moral_ukr = st.slider("Morale Factor (UA)", 0.5, 1.5, 0.80, step=0.01)
-    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.85, step=0.01)
+    logi_ukr = st.slider("Logistics Effectiveness (UA)", 0.5, 1.5, 0.75, step=0.01)
 
     st.subheader("Environment & Weapon Systems")
     artillery_on = st.checkbox("Include Artillery", True)
@@ -123,6 +123,9 @@ with st.sidebar:
     ad_density_ukr = st.slider("🇺🇦 AD Density", 0.0, 1.0, 0.60, 0.01)
     ew_cover_ukr = st.slider("🇺🇦 EW Coverage", 0.0, 1.0, 0.40, 0.01)
     ad_ready_ukr = st.slider("🇺🇦 AD Readiness", 0.0, 1.0, 0.50, 0.01)
+
+    st.subheader("Casualty Type Settings")
+    kia_ratio = st.slider("Est. KIA Ratio", 0.10, 0.60, 0.45, step=0.01)
 
     st.subheader("Force Composition")
 
@@ -151,9 +154,6 @@ with st.sidebar:
     st.subheader("Force Posture")
     posture_rus = st.slider("🇷🇺 Russian Posture", 0.8, 1.2, 1.0, 0.01)
     posture_ukr = st.slider("🇺🇦 Ukrainian Posture", 0.8, 1.2, 1.0, 0.01)
-
-    st.subheader("Casualty Type Settings")
-    kia_ratio = st.slider("Est. KIA Ratio", 0.20, 0.50, 0.45, step=0.01)
 
 # === Force Composition Stats ===
 composition_stats = {
