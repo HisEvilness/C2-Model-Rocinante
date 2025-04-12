@@ -381,7 +381,10 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
         decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
         base_resistance = morale_scaling(moral) * logistic_scaling(logi) * (training ** 1.05)
-        decay_floor = 0.50  # allows up to 50% dropoff for long wars decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), decay_floor)
+
+        # ✅ FIXED: Ensure decay_curve_factor is computed correctly
+        decay_floor = 0.50  # allows up to 50% dropoff for long wars
+        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), decay_floor)
 
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
