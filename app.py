@@ -695,7 +695,7 @@ if kill_ratio_slider > 0:
     # RU advantage — override Ukrainian casualties
     ru_kia_range = results_rus["kia_range"]
     override_kia, override_wia = enforce_kill_ratio(
-        ru_kia_range, abs(kill_ratio_slider), kia_ratio
+        ru_kia_range, abs(kill_ratio_slider), results_ukr["kia_ratio"]
     )
     kia_min_ukr, kia_max_ukr = override_kia
     wia_min_ukr, wia_max_ukr = enforce_kia_wia_sanity(*override_kia, *override_wia)
@@ -703,13 +703,13 @@ if kill_ratio_slider > 0:
     st.header("🇺🇦 Ukrainian Forces (Kill Ratio Adjusted)")
     st.metric("KIA Estimate", f"{kia_min_ukr:,} - {kia_max_ukr:,}")
     st.metric("WIA Estimate", f"{wia_min_ukr:,} - {wia_max_ukr:,}")
-    st.metric("KIA Ratio Used", f"{kia_ratio:.2f}")
+    st.metric("KIA Ratio Used", f"{results_ukr['kia_ratio']:.2f}")
 
 elif kill_ratio_slider < 0:
     # UA advantage — override Russian casualties
     ukr_kia_range = results_ukr["kia_range"]
     override_kia, override_wia = enforce_kill_ratio(
-        ukr_kia_range, abs(kill_ratio_slider), kia_ratio
+        ukr_kia_range, abs(kill_ratio_slider), results_rus["kia_ratio"]
     )
     kia_min_rus, kia_max_rus = override_kia
     wia_min_rus, wia_max_rus = enforce_kia_wia_sanity(*override_kia, *override_wia)
@@ -717,7 +717,7 @@ elif kill_ratio_slider < 0:
     st.header("🇷🇺 Russian Forces (Kill Ratio Adjusted)")
     st.metric("KIA Estimate", f"{kia_min_rus:,} - {kia_max_rus:,}")
     st.metric("WIA Estimate", f"{wia_min_rus:,} - {wia_max_rus:,}")
-    st.metric("KIA Ratio Used", f"{kia_ratio:.2f}")
+    st.metric("KIA Ratio Used", f"{results_rus['kia_ratio']:.2f}")
 
 else:
     # Neutral — results already displayed above in default simulation
