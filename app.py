@@ -37,14 +37,14 @@ def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mo
     morale_bonus = 1 - 0.15 * (1 - morale)
     survivability = max(train_bonus * cohesion_bonus * morale_bonus, 0.65)
 
-    # Dominance boost adjustment (softened)
+    # Dominance boost adjustment
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    dominance_boost = 1 + 0.30 * (1 - suppression_mod)  # reduced from 0.45 to 0.30
+    dominance_boost = 1 + 0.30 * (1 - suppression_mod)
     dominance_boost = min(max(dominance_boost, 0.90), 1.15)
 
     # Final adjusted KIA ratio
     adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost / survivability
-    return min(max(adjusted, 0.12), 0.60)  # AI-aligned KIA cap tightened
+    return min(max(adjusted, 0.12), 0.90)  # AI-aligned KIA cap expanded
 
 # === WIA to KIA Ratios ===
 
@@ -59,7 +59,7 @@ def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, 
         "morale_delta": moral_rus - moral_ukr
     }
 
-# === Dominance Modifiers ===
+# === Dominance Calculation ===
 def compute_dominance_modifiers(deltas):
     """
     Stronger, linear dominance scaling to affect suppression and efficiency.
@@ -184,7 +184,7 @@ composition_stats = {
     "CAS Air": {"cohesion": 1.00, "weapons": 1.20, "training": 1.05},
     "Engineer Units": {"cohesion": 1.00, "weapons": 0.95, "training": 1.10},
     "National Guard": {"cohesion": 0.95, "weapons": 0.90, "training": 0.85},
-    "Storm-Z": {"cohesion": 0.80, "weapons": 0.85, "training": 0.70},
+    "Storm-Z": {"cohesion": 1.00, "weapons": 1.10, "training": 1.00},
     "SOF": {"cohesion": 1.25, "weapons": 1.20, "training": 1.30},
     "EW Units": {"cohesion": 1.10, "weapons": 1.00, "training": 1.10},
     "Recon": {"cohesion": 1.15, "weapons": 1.10, "training": 1.20},
@@ -213,7 +213,6 @@ coh_rus, weapon_quality_rus, train_rus = aggregate_composition(composition_rus)
 coh_ukr, weapon_quality_ukr, train_ukr = aggregate_composition(composition_ukr)
 
 # === Force Resilience & Posture Logic ===
-
 def force_resilience(moral, logi, cmd, cohesion, training):
     """
     Determines force resilience based on core inputs.
@@ -236,6 +235,7 @@ def adjusted_posture(posture, resilience, baseline=1.0):
 posture_rus_adj = adjusted_posture(posture_rus, res_rus)
 posture_ukr_adj = adjusted_posture(posture_ukr, res_ukr)
 
+# Re-declare for use elsewhere in code
 def medical_scaling(med, morale, logi):
     """
     Calculates how medical efficiency, morale, and logistics affect survival.
@@ -246,7 +246,7 @@ def medical_scaling(med, morale, logi):
     return penalty * morale_adj * compound
 
 def get_kia_ratio_by_system(system):
-    # Baseline values based on historical data
+    # Baseline values based on historical casualty data
     ratios = {
         "Artillery": 0.35,
         "Drones": 0.55,
@@ -256,24 +256,26 @@ def get_kia_ratio_by_system(system):
         "Armored Vehicles": 0.50,
         "Air Strikes": 0.60
     }
-    return ratios.get(system, 0.40)  # Default fallback
+    return ratios.get(system, 0.40)  # Fallback default
 
-# === Dynamic Kill Ratio–Driven Intensity Mapping ===
-# === Kill Ratio Slider & Intensity Mapping ===
-st.subheader("🔥 Intensity & Kill Ratio Settings")
+# === Kill Ratio & Intensity Mapping ===
+st.subheader("🔥 Kill Ratio (RU : UA)")
 
-# Kill ratio slider: center is 0 (1:1), positive = Russian advantage, negative = Ukrainian advantage
-kill_ratio_slider = st.slider("Kill Ratio Advantage (UA : RU)", -50, 50, 15, step=1)
+# Kill Ratio Slider — Center = Neutral (1:1), right = Russian advantage, left = Ukrainian advantage
+kill_ratio_slider = st.slider(
+    "Kill Ratio Advantage (drag right = 🇷🇺 RU advantage, left = 🇺🇦 UA advantage)",
+    -50, 50, 15, step=1
+)
 
-# Compute actual numeric kill ratio
+# Calculate numeric kill ratio
 if kill_ratio_slider == 0:
     actual_kill_ratio = 1.0
 elif kill_ratio_slider > 0:
-    actual_kill_ratio = 1.0 / kill_ratio_slider  # RU dominant (e.g., 15 = UA:RU = 1:15)
+    actual_kill_ratio = 1.0 / kill_ratio_slider  # RU advantage
 else:
-    actual_kill_ratio = abs(kill_ratio_slider)   # UA dominant (e.g., -10 = UA:RU = 10:1)
+    actual_kill_ratio = abs(kill_ratio_slider)   # UA advantage
 
-# Display the actual ratio in human-readable format
+# Display human-readable kill ratio
 if kill_ratio_slider == 0:
     st.markdown("📊 **Kill Ratio:** 1 : 1 (Neutral)")
 elif kill_ratio_slider > 0:
@@ -281,29 +283,28 @@ elif kill_ratio_slider > 0:
 else:
     st.markdown(f"📊 **Kill Ratio:** {abs(kill_ratio_slider)} : 1 (🇺🇦 Ukrainian Advantage)")
 
-# Apply dynamic base values using kill ratio
+# Dynamic intensity mapping using actual kill ratio
 def get_intensity_map(kill_ratio):
     """
-    Returns base daily casualty estimates (min values) based on war intensity and kill ratio.
-    Russian side always has base=INTENSITY, Ukrainian side = base * kill ratio
+    Adjusts base daily KIA estimates based on kill ratio.
+    RU base is fixed, UA scales dynamically with kill ratio.
     """
     return {
-        1: (20, 20 * kill_ratio),    # Low
-        2: (50, 50 * kill_ratio),    # Med-low
-        3: (100, 100 * kill_ratio),  # Medium
-        4: (160, 160 * kill_ratio),  # High
-        5: (220, 220 * kill_ratio)   # Total War
+        1: (20, 20 * kill_ratio),
+        2: (50, 50 * kill_ratio),
+        3: (100, 100 * kill_ratio),
+        4: (160, 160 * kill_ratio),
+        5: (220, 220 * kill_ratio)
     }
 
-# Get adjusted base daily casualty estimates
 intensity_map = get_intensity_map(actual_kill_ratio)
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Apply posture effects (already computed earlier)
+# Posture-adjusted values
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
-# === Weapon Shares ===
+# === Weapon System Shares ===
 share_values = {
     "Artillery": 0.62,
     "Drones": 0.13,
@@ -335,6 +336,22 @@ composition_options = [
     "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams",
     "Infantry", "Territorial Defense", "Reservists", "Drone Units", "FPV Teams", "Foreign Legion"
 ]
+
+composition_rus = st.multiselect(
+    "🇷🇺 Russian Composition", composition_options,
+    default=[
+        "VDV", "Armored", "Mechanized", "Artillery", "CAS Air", "Engineer Units",
+        "National Guard", "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams"
+    ]
+)
+
+composition_ukr = st.multiselect(
+    "🇺🇦 Ukrainian Composition", composition_options,
+    default=[
+        "Infantry", "Territorial Defense", "Reservists", "FPV Teams", "Drone Units",
+        "Engineer Units", "Foreign Legion", "SOF", "Artillery", "Recon", "C4ISR Teams"
+    ]
+)
     
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mods, base_slider=0.30):
@@ -367,12 +384,44 @@ def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mo
     adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost / survivability
     return min(max(adjusted, 0.10), 0.85)  # AI model range
 
+# === Relative Advantage Calculation ===
 # ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
+    """
+    Calculates the relative advantage based on leadership, logistics, and morale.
+    Used to adjust suppression and efficiency scaling.
+    """
     return {
         "cmd_delta": cmd_rus - cmd_ukr,
         "logi_delta": logi_rus - logi_ukr,
         "morale_delta": moral_rus - moral_ukr
+    }
+
+# === Dominance Modifiers ===
+# === Dominance Modifiers ===
+def compute_dominance_modifiers(deltas):
+    """
+    Stronger, linear dominance scaling to affect suppression and efficiency.
+    - Used in KIA ratio and casualty scaling
+    - Applied based on comparative leadership, morale, logistics, AD & EW strength
+    """
+
+    cmd_delta = deltas.get("cmd_delta", 0)
+    logi_delta = deltas.get("logi_delta", 0)
+    morale_delta = deltas.get("morale_delta", 0)
+    ad_delta = deltas.get("ad_delta", 0)
+    ew_delta = deltas.get("ew_delta", 0)
+
+    # Combined axes
+    suppression_score = cmd_delta + logi_delta
+    efficiency_score = morale_delta + ad_delta + ew_delta
+
+    suppression_mod = 1 + max(min(suppression_score * 0.25, 0.25), -0.20)
+    efficiency_mod = 1 + max(min(efficiency_score * 0.20, 0.20), -0.15)
+
+    return {
+        "suppression_mod": suppression_mod,
+        "efficiency_mod": efficiency_mod
     }
 
 # === Fixed Weapon System Bar + Cumulative Line Chart ===
