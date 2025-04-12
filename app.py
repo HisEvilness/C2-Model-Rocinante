@@ -17,24 +17,35 @@ def medical_scaling(med, morale, logi):
 def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
     
 # === KIA Ratios ===
-def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
-    med = min(max(med, 0.01), 1.0)
-    logi = min(max(logi, 0.01), 1.5)
-    cmd = min(max(cmd, 0.0), 0.5)
+def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mods, base_slider=0.30):
+    """
+    Calculates dynamic KIA ratio using AI model logic:
+    - Penalized by low medical, poor logistics
+    - Boosted by training, morale, cohesion
+    - Dominance sharply increases KIA if outmatched
+    """
 
-    medical_penalty = (1 - med) ** 1.1
-    logistics_penalty = (1 - (logi / 1.5)) ** 0.8
-    commander_bonus = cmd * 0.25
+    med_penalty = (1.2 * (1 - med)) ** 1.2
+    logi_penalty = (1 - (logi / 1.5)) ** 1.0
+    cmd_bonus = 0.25 * cmd
 
+    # AI logic: training & cohesion reduce fatality bias
+    train_bonus = 1 - 0.15 * (1 - training)
+    cohesion_bonus = 1 - 0.10 * (1 - cohesion)
+    morale_bonus = 1 - 0.10 * (1 - morale)
+
+    # Combined survival reduction
+    survivability = train_bonus * cohesion_bonus * morale_bonus
+
+    # Dominance boost
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
-    dominance_penalty = ((suppression_mod + efficiency_mod) / 2 - 1) * 0.5
+    DOMINANCE_SCALING = 0.45
+    dominance_boost = 1 + DOMINANCE_SCALING * (1 - suppression_mod)
+    dominance_boost = min(max(dominance_boost, 0.85), 1.25)
 
-    adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus + dominance_penalty)
-    min_kia_slider = 0.10
-    max_kia_slider = 0.70
-
-    return min(max(adjusted, min_kia_slider), max_kia_slider)
+    # Final KIA ratio
+    adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost / survivability
+    return min(max(adjusted, 0.10), 0.85)  # AI model range
 
 # === WIA to KIA Ratios ===
 
@@ -277,33 +288,37 @@ composition_options = [
 ]
     
 # === KIA/WIA Logic ===
-def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.30):
+def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mods, base_slider=0.30):
     """
-    Dynamically adjusts the KIA ratio based on:
-    - Medical & logistics efficiency (worse = higher KIA)
-    - Commander effectiveness (better = lower KIA)
-    - Relative suppression dominance (being outmatched = higher KIA)
+    Calculates dynamic KIA ratio using AI model logic:
+    - Penalized by low medical, poor logistics
+    - Boosted by training, morale, cohesion
+    - Dominance sharply increases KIA if outmatched
     """
-    # Safety caps
-    med = min(max(med, 0.01), 1.0)
-    logi = min(max(logi, 0.01), 1.5)
-    cmd = min(max(cmd, 0.0), 0.5)
 
-    # Support penalties
-    med_penalty = (1 - med) ** 1.1
-    logi_penalty = (1 - (logi / 1.5)) ** 0.9
+    med_penalty = (1.2 * (1 - med)) ** 1.2
+    logi_penalty = (1 - (logi / 1.5)) ** 1.0
     cmd_bonus = 0.25 * cmd
 
-    # Dominance scaling: suppression mod < 1 means disadvantaged
+    # AI logic: training & cohesion reduce fatality bias
+    train_bonus = 1 - 0.15 * (1 - training)
+    cohesion_bonus = 1 - 0.10 * (1 - cohesion)
+    morale_bonus = 1 - 0.10 * (1 - morale)
+
+    # Combined survival reduction
+    survivability = train_bonus * cohesion_bonus * morale_bonus
+
+    # Dominance boost
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    DOMINANCE_SCALING = 0.45  # ← easier to tweak later
+    DOMINANCE_SCALING = 0.45
     dominance_boost = 1 + DOMINANCE_SCALING * (1 - suppression_mod)
-    dominance_boost = min(max(dominance_boost, 0.85), 1.15)
+    dominance_boost = min(max(dominance_boost, 0.85), 1.25)
 
-    # Final adjusted ratio
-    adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost
-    return min(max(adjusted, 0.10), 0.75)
+    # Final KIA ratio
+    adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost / survivability
+    return min(max(adjusted, 0.10), 0.85)  # AI model range
 
+# ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
     return {
         "cmd_delta": cmd_rus - cmd_ukr,
@@ -320,7 +335,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
                                 deltas):
     results, total = OrderedDict(), OrderedDict()
     kia_by_system, wia_by_system = OrderedDict(), OrderedDict()
-    
+
     total_share = sum(weapons.values())
     if total_share == 0:
         st.warning("No active weapon systems. Please enable at least one.")
@@ -361,7 +376,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base_suppression = 1 - (0.03 + 0.05 * cmd)
         training_bonus = 1 + 0.05 * capped_training
         cohesion_factor = 0.98 + 0.03 * capped_cohesion
-        dominance_amplifier = 1 + 0.5 * (1 - suppression_mod) 
+        dominance_amplifier = 1 + 0.5 * (1 - suppression_mod)
         suppression = base_suppression * training_bonus * cohesion_factor * suppression_mod * dominance_amplifier
 
         # === Medical and logistics scaling
@@ -378,8 +393,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         daily_min = round(daily_base * 0.95, 1)
         daily_max = round(daily_base * 1.05, 1)
 
-        # === Apply KIA/WIA split per system
-        kia_ratio = get_kia_ratio_by_system(system)
+        # === Apply updated AI-based KIA ratio per system
+        kia_ratio = calculate_kia_ratio(med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=0.30)
         kia_min = round(daily_min * kia_ratio * duration)
         kia_max = round(daily_max * kia_ratio * duration)
         wia_min = round(daily_min * (1 - kia_ratio) * duration)
@@ -412,7 +427,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 💡 Calculate modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
-    # 📊 Run the updated casualty calculation (now with per-system KIA/WIA)
+    # 📊 Run updated AI-aligned casualty calculation
     daily_range, cumulative_range, kia_by_system, wia_by_system = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready,
@@ -433,8 +448,8 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
         "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()},
-        "KIA Est": {k: kia_by_system[k][1] for k in kia_by_system},  # using max
-        "WIA Est": {k: wia_by_system[k][1] for k in wia_by_system}   # using max
+        "KIA Est": {k: kia_by_system[k][1] for k in kia_by_system},
+        "WIA Est": {k: wia_by_system[k][1] for k in wia_by_system}
     })
 
     st.header(f"{flag} {name} Forces")
@@ -526,11 +541,11 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 display_force("🇷🇺", "Russian",
               base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
               exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-              weapon_quality_rus, train_rus, coh_rus, weapons, kia_ratio)
+              weapon_quality_rus, train_rus, coh_rus, weapons, base_slider=kia_ratio)
 
 display_force("🇺🇦", "Ukrainian",
               base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
               exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-              weapon_quality_ukr, train_ukr, coh_ukr, weapons, kia_ratio)
+              weapon_quality_ukr, train_ukr, coh_ukr, weapons, base_slider=kia_ratio)
 
 # === Historical Conflict Benchmarks & Comparison ===
