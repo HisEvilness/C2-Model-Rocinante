@@ -302,12 +302,6 @@ def enforce_kill_ratio(ru_kia_range, kill_ratio, kia_ratio_ukr):
 
     return (ukr_kia_min, ukr_kia_max), (ukr_wia_min, ukr_wia_max)
 
-# 📦 After Russian simulation is complete
-ru_kia_range = results_rus["kia_range"]
-
-# 🔄 Apply enforced kill ratio
-ukr_kia_range, uk
-
 # === Weapon System Shares ===
 share_values = {
     "Artillery": 0.62,
