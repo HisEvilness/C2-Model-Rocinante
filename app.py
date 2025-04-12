@@ -331,7 +331,8 @@ from collections import OrderedDict
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready,
                                 weapon_quality, training, cohesion, weapons,
-                                deltas):
+                                deltas, kia_ratio):
+
     results, total = OrderedDict(), OrderedDict()
     kia_by_system, wia_by_system = OrderedDict(), OrderedDict()
 
@@ -426,11 +427,16 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 💡 Calculate modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
+    # ✅ Calculate KIA ratio once for the whole force (AI logic)
+    kia_ratio = calculate_kia_ratio(
+        med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=base_slider
+    )
+
     # 📊 Run updated AI-aligned casualty calculation
     daily_range, cumulative_range, kia_by_system, wia_by_system = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready,
-        weapon_quality, training, cohesion, weapons, deltas
+        weapon_quality, training, cohesion, weapons, deltas, kia_ratio
     )
 
     # 🧮 Totals
@@ -456,6 +462,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
+    st.metric("KIA Ratio Used", f"{kia_ratio:.2f}")
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
@@ -486,6 +493,7 @@ def plot_daily_curve(title, daily_range, duration):
 
     st.altair_chart(chart, use_container_width=True)
 
+# === Calculation Chart ===
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
 
