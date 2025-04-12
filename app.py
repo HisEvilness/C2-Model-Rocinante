@@ -282,7 +282,7 @@ base_rus, base_ukr = get_intensity_map(actual_kill_ratio)
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
-# === Enforce Ukrainian KIA/WIA from RU KIA and kill ratio ===
+# === Enforce Ukrainian KIA/WIA from Russian KIA and kill ratio ===
 
 def enforce_kill_ratio(ru_kia_range, kill_ratio, kia_ratio_ukr):
     """
@@ -295,18 +295,15 @@ def enforce_kill_ratio(ru_kia_range, kill_ratio, kia_ratio_ukr):
     ukr_kia_max = round(ru_kia_max * kill_ratio)
 
     # Derive WIA based on Ukrainian KIA ratio
-    total_ukr_min = round(ukr_kia_min / kia_ratio_ukr)
-    total_ukr_max = round(ukr_kia_max / kia_ratio_ukr)
+    total_ukr_min = max(round(ukr_kia_min / kia_ratio_ukr), ukr_kia_min + 1)
+    total_ukr_max = max(round(ukr_kia_max / kia_ratio_ukr), ukr_kia_max + 1)
     ukr_wia_min = total_ukr_min - ukr_kia_min
     ukr_wia_max = total_ukr_max - ukr_kia_max
 
     return (ukr_kia_min, ukr_kia_max), (ukr_wia_min, ukr_wia_max)
 
-# 📦 After Russian force has been processed
-ru_kia_range = (
-    sum(v[0] for v in kia_by_system_rus.values()),  # min RU KIA
-    sum(v[1] for v in kia_by_system_rus.values())   # max RU KIA
-)
+# 📦 After Russian simulation is complete
+ru_kia_range = results_rus["kia_range"]
 
 # 🔄 Apply enforced kill ratio
 ukr_kia_range, uk
