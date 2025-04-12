@@ -6,6 +6,7 @@ from collections import OrderedDict
 
 # === Utility Functions ===
 def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
+
 def logistic_scaling(l): return 0.5 + 0.5 * l
 
 def medical_scaling(med, morale, logi):
@@ -272,8 +273,8 @@ def get_intensity_map(kill_ratio):
     else:
         return (base / kill_ratio, base)   # RU scaled up, UA takes base
 
-intensity_map = get_intensity_map(actual_kill_ratio)
-base_rus, base_ukr = intensity_map[intensity_level]
+# Apply adjusted base casualty values
+base_rus, base_ukr = get_intensity_map(actual_kill_ratio)
 
 # Posture-adjusted values
 base_rus *= posture_rus_adj
