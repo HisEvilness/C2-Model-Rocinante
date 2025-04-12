@@ -37,32 +37,6 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
     return min(max(adjusted, min_kia_slider), max_kia_slider)
 
 # === WIA to KIA Ratios ===
-def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
-    kia_min = round(total_min * kia_ratio)
-    kia_max = round(total_max * kia_ratio)
-
-    # Enforce minimum WIA to KIA ratio
-    min_wia_ratio = 1.25
-    if dominance_mods:
-        suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-        efficiency_mod = dominance_mods.get("efficiency_mod", 1.0)
-        pressure = (suppression_mod + efficiency_mod) / 2
-        min_wia_ratio = min(1.6, 1.1 + 0.5 * (1.0 - pressure))
-
-    wia_min = max(kia_min, round(kia_min * min_wia_ratio))
-    wia_max = max(kia_max, round(kia_max * min_wia_ratio))
-
-    # Cap so we don’t overshoot
-    wia_min = min(wia_min, total_min - kia_min)
-    wia_max = min(wia_max, total_max - kia_max)
-
-    # Adjust if sum is under total
-    if kia_min + wia_min < total_min:
-        wia_min = total_min - kia_min
-    if kia_max + wia_max < total_max:
-        wia_max = total_max - kia_max
-
-    return kia_min, kia_max, wia_min, wia_max
 
 # === Relative Advantage Calculation ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
@@ -332,10 +306,12 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
                                 weapon_quality, training, cohesion, weapons,
                                 deltas):
     results, total = OrderedDict(), OrderedDict()
+    kia_by_system, wia_by_system = OrderedDict(), OrderedDict()
+    
     total_share = sum(weapons.values())
     if total_share == 0:
         st.warning("No active weapon systems. Please enable at least one.")
-        return {}, {}
+        return {}, {}, {}, {}
 
     # Compute dominance scaling modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
@@ -366,7 +342,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         system_eff = 1 + 0.65 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff * efficiency_mod, 0.35)
 
-        # === Suppression scaling with capped cohesion and training
+        # === Suppression scaling
         capped_training = min(training, 1.2)
         capped_cohesion = min(cohesion, 1.15)
         base_suppression = 1 - (0.03 + 0.05 * cmd)
@@ -381,19 +357,26 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
         decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
         base_resistance = morale_scaling(moral) * logistic_scaling(logi) * (training ** 1.05)
-
-        # ✅ FIXED: Ensure decay_curve_factor is computed correctly
-        decay_floor = 0.50  # allows up to 50% dropoff for long wars
+        decay_floor = 0.50
         decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), decay_floor)
 
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
         daily_max = round(daily_base * 1.05, 1)
 
+        # === Apply KIA/WIA split per system
+        kia_ratio = get_kia_ratio_by_system(system)
+        kia_min = round(daily_min * kia_ratio * duration)
+        kia_max = round(daily_max * kia_ratio * duration)
+        wia_min = round(daily_min * (1 - kia_ratio) * duration)
+        wia_max = round(daily_max * (1 - kia_ratio) * duration)
+
         results[system] = (daily_min, daily_max)
         total[system] = (round(daily_min * duration), round(daily_max * duration))
+        kia_by_system[system] = (kia_min, kia_max)
+        wia_by_system[system] = (wia_min, wia_max)
 
-    return results, total
+    return results, total, kia_by_system, wia_by_system
 
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
@@ -415,27 +398,29 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 💡 Calculate modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
-    # 🧮 Compute KIA ratio dynamically, using slider as base
-    kia_ratio_final = calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=base_slider)
-
-    # 📊 Run the updated casualty calculation
-    daily_range, cumulative_range = calculate_casualties_range(
+    # 📊 Run the updated casualty calculation (now with per-system KIA/WIA)
+    daily_range, cumulative_range, kia_by_system, wia_by_system = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready,
         weapon_quality, training, cohesion, weapons, deltas
     )
 
-    # 🧮 WIA/KIA split from model
+    # 🧮 Totals
     total_min = sum(v[0] for v in cumulative_range.values())
     total_max = sum(v[1] for v in cumulative_range.values())
-    kia_min, kia_max, wia_min, wia_max = compute_wia_kia_split(total_min, total_max, kia_ratio_final, dominance_mods)
+    kia_min = sum(v[0] for v in kia_by_system.values())
+    kia_max = sum(v[1] for v in kia_by_system.values())
+    wia_min = sum(v[0] for v in wia_by_system.values())
+    wia_max = sum(v[1] for v in wia_by_system.values())
 
-    # 🖥️ Display
+    # 🖥️ Display casualty ranges
     df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
-        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()}
+        "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()},
+        "KIA Est": {k: kia_by_system[k][1] for k in kia_by_system},  # using max
+        "WIA Est": {k: wia_by_system[k][1] for k in wia_by_system}   # using max
     })
 
     st.header(f"{flag} {name} Forces")
@@ -443,8 +428,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
-    st.metric("KIA Ratio Used", f"{kia_ratio_final:.2f}")
-   
+
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
 
