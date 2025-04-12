@@ -296,7 +296,7 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.30):
 
     # Dominance scaling: suppression mod < 1 means disadvantaged
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    DOMINANCE_SCALING = 0.25  # ← easier to tweak later
+    DOMINANCE_SCALING = 0.45  # ← easier to tweak later
     dominance_boost = 1 + DOMINANCE_SCALING * (1 - suppression_mod)
     dominance_boost = min(max(dominance_boost, 0.85), 1.15)
 
@@ -361,7 +361,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base_suppression = 1 - (0.03 + 0.05 * cmd)
         training_bonus = 1 + 0.05 * capped_training
         cohesion_factor = 0.98 + 0.03 * capped_cohesion
-        suppression = base_suppression * training_bonus * cohesion_factor * suppression_mod
+        dominance_amplifier = 1 + 0.5 * (1 - suppression_mod) 
+        suppression = base_suppression * training_bonus * cohesion_factor * suppression_mod * dominance_amplifier
 
         # === Medical and logistics scaling
         med_factor = medical_scaling(med, moral, logi)
