@@ -219,6 +219,19 @@ def medical_scaling(med, morale, logi):
     compound = 1 + 0.15 * (1 - logi) if logi < 0.75 else 1.0
     return penalty * morale_adj * compound
 
+def get_kia_ratio_by_system(system):
+    # Baseline values based on historical data
+    ratios = {
+        "Artillery": 0.35,
+        "Drones": 0.55,
+        "Snipers": 0.65,
+        "Small Arms": 0.30,
+        "Heavy Weapons": 0.40,
+        "Armored Vehicles": 0.50,
+        "Air Strikes": 0.60
+    }
+    return ratios.get(system, 0.40)  # Default fallback
+
 intensity_map = {
     1: (20, 600),
     2: (50, 1000),
