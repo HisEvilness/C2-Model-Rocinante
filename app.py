@@ -258,26 +258,28 @@ def get_kia_ratio_by_system(system):
     }
     return ratios.get(system, 0.40)  # Default fallback
 
-# === Kill Ratio & Intensity Mapping ===
-st.subheader("🔥 Intensity & Kill Ratio Settings")
-kill_ratio_slider = st.slider("Kill Ratio (UA:RU)", 5, 25, 15, step=1)
+# === Dynamic Kill Ratio–Driven Intensity Mapping ===
+kill_ratio_slider = st.slider("🔥 Kill Ratio (RU : UA)", 0.1, 50.0, 10.0, step=0.1)
+st.caption("➡️ More right = RU advantage (higher UA casualties) | ⬅️ More left = UA advantage")
 
 def get_intensity_map(kill_ratio):
     """
-    Dynamic casualty potential based on kill ratio scaling.
+    AI-aligned dynamic casualty potential based on RU-to-UA kill ratio.
+    Ensures Russian baseline scales predictably, UA adjusts via firepower delta.
     """
     return {
         1: (20, 20 * kill_ratio),    # Low intensity
         2: (50, 50 * kill_ratio),    # Moderate-low
         3: (100, 100 * kill_ratio),  # Medium
-        4: (150, 150 * kill_ratio),  # High
-        5: (200, 200 * kill_ratio)   # Max war effort
+        4: (160, 160 * kill_ratio),  # High
+        5: (220, 220 * kill_ratio)   # Maximum effort war state
     }
 
+# Grab daily base casualties from dynamic map
 intensity_map = get_intensity_map(kill_ratio_slider)
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Posture adjustment (resilience already calculated)
+# Posture-adjust final daily baselines (used downstream)
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
