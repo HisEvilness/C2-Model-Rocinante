@@ -31,7 +31,10 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.45):
     dominance_penalty = ((suppression_mod + efficiency_mod) / 2 - 1) * 0.5
 
     adjusted = base_slider * (1 + medical_penalty + logistics_penalty - commander_bonus + dominance_penalty)
-    return min(max(adjusted, 0.20), 0.60)
+    min_kia_slider = 0.10
+    max_kia_slider = 0.70
+
+    return min(max(adjusted, min_kia_slider), max_kia_slider)
 
 # === WIA to KIA Ratios ===
 def compute_wia_kia_split(total_min, total_max, kia_ratio, dominance_mods=None):
@@ -107,13 +110,6 @@ Casualty and degradation calculations are based on:
 > This simulation aligns with validated AI predictions and 25+ historical conflicts for casualty realism.
 """)
 
-# Utility Functions
-def morale_scaling(m): return 1 + 0.8 * math.tanh(2 * (m - 1))
-def logistic_scaling(l): return 0.5 + 0.5 * l
-def medical_scaling(med, morale): return (1 + (1 - med) ** 1.3) * (1 + 0.1 * (morale - 1))
-def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
-
-# Sidebar Configuration
 # Sidebar Configuration
 with st.sidebar:
     st.header("Scenario Configuration")
@@ -313,7 +309,8 @@ def calculate_kia_ratio(med, logi, cmd, dominance_mods, base_slider=0.30):
 
     # Dominance scaling: suppression mod < 1 means disadvantaged
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    dominance_boost = 1 + 0.10 * (1 - suppression_mod)  # amplify if outmatched
+    DOMINANCE_SCALING = 0.25  # ← easier to tweak later
+    dominance_boost = 1 + DOMINANCE_SCALING * (1 - suppression_mod)
     dominance_boost = min(max(dominance_boost, 0.85), 1.15)
 
     # Final adjusted ratio
@@ -366,7 +363,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 
         # === Combined system efficiency
         raw_eff = system_scaling * ew_penalty * ad_penalty * coordination * weapon_quality
-        system_eff = 1 + 0.45 * math.tanh(raw_eff - 1)
+        system_eff = 1 + 0.65 * math.tanh(raw_eff - 1)
         system_eff = max(system_eff * efficiency_mod, 0.35)
 
         # === Suppression scaling with capped cohesion and training
@@ -384,7 +381,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         base = base_rate * base_share * system_eff * modifier * med_factor * suppression
         decay_strength = 0.00035 + 0.00012 * math.tanh(duration / 800)
         base_resistance = morale_scaling(moral) * logistic_scaling(logi) * (training ** 1.05)
-        decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), 0.65)
+        decay_floor = 0.50  # allows up to 50% dropoff for long wars decay_curve_factor = max(math.exp(-decay_strength * duration / base_resistance), decay_floor)
 
         daily_base = base * decay_curve_factor
         daily_min = round(daily_base * 0.95, 1)
@@ -523,31 +520,6 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     )
 
     st.altair_chart(line_chart, use_container_width=True)
-
-def plot_daily_curve(title, daily_range, duration):
-    x = list(range(0, duration + 1, 7))
-    min_per_day = [sum(v[0] for v in daily_range.values())] * len(x)
-    max_per_day = [sum(v[1] for v in daily_range.values())] * len(x)
-
-    daily_df = pd.DataFrame({
-        "Day": x,
-        "Min": min_per_day,
-        "Max": max_per_day
-    })
-
-    melted = pd.melt(daily_df, id_vars="Day", value_vars=["Min", "Max"], var_name="Type", value_name="Casualties")
-
-    chart = alt.Chart(melted).mark_line().encode(
-        x=alt.X("Day:Q", title="Day"),
-        y=alt.Y("Casualties:Q", title="Estimated Daily Casualties"),
-        color="Type:N"
-    ).properties(
-        title=f"{title} Daily Casualty Curve",
-        width=700,
-        height=300
-    )
-
-    st.altair_chart(chart, use_container_width=True)
 
 # === Final Output Execution ===
 display_force("🇷🇺", "Russian",
