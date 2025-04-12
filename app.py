@@ -329,30 +329,7 @@ total_share = sum(weapons.values())
 if total_share == 0:
     st.warning("Please enable at least one weapon system to view casualty estimates.")
     st.stop()
-
-# === Available Unit Types ===
-composition_options = [
-    "VDV", "Armored", "Mechanized", "Artillery", "CAS Air", "Engineer Units", "National Guard",
-    "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams",
-    "Infantry", "Territorial Defense", "Reservists", "Drone Units", "FPV Teams", "Foreign Legion"
-]
-
-composition_rus = st.multiselect(
-    "🇷🇺 Russian Composition", composition_options,
-    default=[
-        "VDV", "Armored", "Mechanized", "Artillery", "CAS Air", "Engineer Units",
-        "National Guard", "SOF", "Storm-Z", "EW Units", "Recon", "C4ISR Teams"
-    ]
-)
-
-composition_ukr = st.multiselect(
-    "🇺🇦 Ukrainian Composition", composition_options,
-    default=[
-        "Infantry", "Territorial Defense", "Reservists", "FPV Teams", "Drone Units",
-        "Engineer Units", "Foreign Legion", "SOF", "Artillery", "Recon", "C4ISR Teams"
-    ]
-)
-    
+ 
 # === KIA/WIA Logic ===
 def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mods, base_slider=0.30):
     """
