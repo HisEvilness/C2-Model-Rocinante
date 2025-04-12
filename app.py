@@ -258,14 +258,26 @@ def get_kia_ratio_by_system(system):
     }
     return ratios.get(system, 0.40)  # Default fallback
 
-intensity_map = {
-    1: (20, 600),
-    2: (50, 1000),
-    3: (100, 1500),
-    4: (160, 2500),
-    5: (220, 3500)
-}
+# === Kill Ratio & Intensity Mapping ===
+st.subheader("🔥 Intensity & Kill Ratio Settings")
+kill_ratio_slider = st.slider("Kill Ratio (UA:RU)", 5, 25, 15, step=1)
+
+def get_intensity_map(kill_ratio):
+    """
+    Dynamic casualty potential based on kill ratio scaling.
+    """
+    return {
+        1: (20, 20 * kill_ratio),    # Low intensity
+        2: (50, 50 * kill_ratio),    # Moderate-low
+        3: (100, 100 * kill_ratio),  # Medium
+        4: (150, 150 * kill_ratio),  # High
+        5: (200, 200 * kill_ratio)   # Max war effort
+    }
+
+intensity_map = get_intensity_map(kill_ratio_slider)
 base_rus, base_ukr = intensity_map[intensity_level]
+
+# Posture adjustment (resilience already calculated)
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
