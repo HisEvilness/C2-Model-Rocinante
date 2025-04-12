@@ -259,27 +259,47 @@ def get_kia_ratio_by_system(system):
     return ratios.get(system, 0.40)  # Default fallback
 
 # === Dynamic Kill Ratio–Driven Intensity Mapping ===
-kill_ratio_slider = st.slider("🔥 Kill Ratio (RU : UA)", 0.1, 50.0, 10.0, step=0.1)
-st.caption("➡️ More right = RU advantage (higher UA casualties) | ⬅️ More left = UA advantage")
+# === Kill Ratio Slider & Intensity Mapping ===
+st.subheader("🔥 Intensity & Kill Ratio Settings")
 
+# Kill ratio slider: center is 0 (1:1), positive = Russian advantage, negative = Ukrainian advantage
+kill_ratio_slider = st.slider("Kill Ratio Advantage (UA : RU)", -50, 50, 15, step=1)
+
+# Compute actual numeric kill ratio
+if kill_ratio_slider == 0:
+    actual_kill_ratio = 1.0
+elif kill_ratio_slider > 0:
+    actual_kill_ratio = 1.0 / kill_ratio_slider  # RU dominant (e.g., 15 = UA:RU = 1:15)
+else:
+    actual_kill_ratio = abs(kill_ratio_slider)   # UA dominant (e.g., -10 = UA:RU = 10:1)
+
+# Display the actual ratio in human-readable format
+if kill_ratio_slider == 0:
+    st.markdown("📊 **Kill Ratio:** 1 : 1 (Neutral)")
+elif kill_ratio_slider > 0:
+    st.markdown(f"📊 **Kill Ratio:** 1 : {kill_ratio_slider} (🇷🇺 Russian Advantage)")
+else:
+    st.markdown(f"📊 **Kill Ratio:** {abs(kill_ratio_slider)} : 1 (🇺🇦 Ukrainian Advantage)")
+
+# Apply dynamic base values using kill ratio
 def get_intensity_map(kill_ratio):
     """
-    AI-aligned dynamic casualty potential based on RU-to-UA kill ratio.
-    Ensures Russian baseline scales predictably, UA adjusts via firepower delta.
+    Returns base daily casualty estimates (min values) based on war intensity and kill ratio.
+    Russian side always has base=INTENSITY, Ukrainian side = base * kill ratio
     """
     return {
-        1: (20, 20 * kill_ratio),    # Low intensity
-        2: (50, 50 * kill_ratio),    # Moderate-low
+        1: (20, 20 * kill_ratio),    # Low
+        2: (50, 50 * kill_ratio),    # Med-low
         3: (100, 100 * kill_ratio),  # Medium
         4: (160, 160 * kill_ratio),  # High
-        5: (220, 220 * kill_ratio)   # Maximum effort war state
+        5: (220, 220 * kill_ratio)   # Total War
     }
 
-# Grab daily base casualties from dynamic map
-intensity_map = get_intensity_map(kill_ratio_slider)
+# Get adjusted base daily casualty estimates
+intensity_map = get_intensity_map(actual_kill_ratio)
 base_rus, base_ukr = intensity_map[intensity_level]
 
-# Posture-adjust final daily baselines (used downstream)
+# Apply posture effects (already computed earlier)
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
