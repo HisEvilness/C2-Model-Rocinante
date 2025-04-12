@@ -19,46 +19,51 @@ def commander_scaling(cmd): return 1 / (1 + 0.3 * cmd)
 # === KIA Ratios ===
 def calculate_kia_ratio(med, logi, cmd, morale, training, cohesion, dominance_mods, base_slider=0.30):
     """
-    AI-aligned KIA ratio logic
-    - Adjusts for med/logi failure
-    - Reduces KIA through cohesion/training/morale
-    - Boosted under tactical inferiority
+    Calculates dynamic KIA ratio using AI model logic:
+    - Penalized by low medical and logistics
+    - Improved by training, cohesion, morale
+    - Moderately scaled by enemy dominance (suppression_mod)
+    - Capped to match empirical benchmarks
     """
 
+    # Support penalties
     med_penalty = (1.2 * (1 - med)) ** 1.15
     logi_penalty = (1 - (logi / 1.5)) ** 0.9
     cmd_bonus = 0.25 * cmd
 
-    # Stronger survivability buffer
+    # Survivability buffering
     train_bonus = 1 - 0.25 * (1 - training)
     cohesion_bonus = 1 - 0.20 * (1 - cohesion)
     morale_bonus = 1 - 0.15 * (1 - morale)
     survivability = max(train_bonus * cohesion_bonus * morale_bonus, 0.65)
 
+    # Dominance boost adjustment (softened)
     suppression_mod = dominance_mods.get("suppression_mod", 1.0)
-    dominance_boost = 1 + 0.35 * (1 - suppression_mod)
-    dominance_boost = min(max(dominance_boost, 0.85), 1.15)
+    dominance_boost = 1 + 0.30 * (1 - suppression_mod)  # reduced from 0.45 to 0.30
+    dominance_boost = min(max(dominance_boost, 0.90), 1.15)
 
-    # Final scaling
+    # Final adjusted KIA ratio
     adjusted = base_slider * (1 + med_penalty + logi_penalty - cmd_bonus) * dominance_boost / survivability
-    return min(max(adjusted, 0.12), 0.60)  # final KIA range
+    return min(max(adjusted, 0.12), 0.60)  # AI-aligned KIA cap tightened
 
 # === WIA to KIA Ratios ===
 
 # === Relative Advantage Calculation ===
 def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, moral_ukr):
+    """
+    Computes deltas between both sides’ command, logistics, and morale for scaling.
+    """
     return {
         "cmd_delta": cmd_rus - cmd_ukr,
         "logi_delta": logi_rus - logi_ukr,
         "morale_delta": moral_rus - moral_ukr
     }
 
-# ===
+# === Dominance Modifiers ===
 def compute_dominance_modifiers(deltas):
     """
-    Stronger, linear dominance scaling to affect suppression and system efficiency.
-    - Applies sharper penalty when one side is tactically dominated
-    - AI-aligned: allows 15–25% shift in casualty shaping
+    Stronger, linear dominance scaling to affect suppression and efficiency.
+    - Used in KIA ratio and casualty scaling
     """
 
     cmd_delta = deltas.get("cmd_delta", 0)
@@ -67,11 +72,12 @@ def compute_dominance_modifiers(deltas):
     ad_delta = deltas.get("ad_delta", 0)
     ew_delta = deltas.get("ew_delta", 0)
 
+    # Combined axes
     suppression_score = cmd_delta + logi_delta
     efficiency_score = morale_delta + ad_delta + ew_delta
 
-    suppression_mod = 1 + max(min(suppression_score * 0.25, 0.30), -0.25)
-    efficiency_mod = 1 + max(min(efficiency_score * 0.25, 0.30), -0.25)
+    suppression_mod = 1 + max(min(suppression_score * 0.25, 0.25), -0.20)
+    efficiency_mod = 1 + max(min(efficiency_score * 0.20, 0.20), -0.15)
 
     return {
         "suppression_mod": suppression_mod,
@@ -206,13 +212,23 @@ def aggregate_composition(selection):
 coh_rus, weapon_quality_rus, train_rus = aggregate_composition(composition_rus)
 coh_ukr, weapon_quality_ukr, train_ukr = aggregate_composition(composition_ukr)
 
+# === Force Resilience & Posture Logic ===
+
 def force_resilience(moral, logi, cmd, cohesion, training):
+    """
+    Determines force resilience based on core inputs.
+    Affects how posture influences base casualty volume.
+    """
     return morale_scaling(moral) * logistic_scaling(logi) * (1 + 0.2 * cmd) * cohesion * training
 
 res_rus = force_resilience(moral_rus, logi_rus, cmd_rus, coh_rus, train_rus)
 res_ukr = force_resilience(moral_ukr, logi_ukr, cmd_ukr, coh_ukr, train_ukr)
 
 def adjusted_posture(posture, resilience, baseline=1.0):
+    """
+    Adjusts posture effect based on resilience. 
+    Prevents weak forces from over-amplifying offensive/defensive posture.
+    """
     offset = posture - 1.0
     impact = offset * (1 - baseline / resilience)
     return 1 + 0.25 * math.tanh(3 * impact)
