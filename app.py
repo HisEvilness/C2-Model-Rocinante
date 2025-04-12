@@ -240,9 +240,9 @@ kill_ratio_slider = st.slider(
 if kill_ratio_slider == 0:
     actual_kill_ratio = 1.0
 elif kill_ratio_slider > 0:
-    actual_kill_ratio = 1.0 / kill_ratio_slider  # RU advantage
+    actual_kill_ratio = kill_ratio_slider  # RU advantage (e.g. 15:1)
 else:
-    actual_kill_ratio = abs(kill_ratio_slider)   # UA advantage
+    actual_kill_ratio = 1.0 / abs(kill_ratio_slider)  # UA advantage (e.g. 1:15)
 
 # Display human-readable kill ratio
 if kill_ratio_slider == 0:
@@ -252,12 +252,12 @@ elif kill_ratio_slider > 0:
 else:
     st.markdown(f"📊 **Kill Ratio:** {abs(kill_ratio_slider)} : 1 (🇺🇦 Ukrainian Advantage)")
 
-# Dynamic intensity mapping using actual kill ratio
+# Corrected intensity mapping function
 def get_intensity_map(kill_ratio):
     """
     Adjusts base daily KIA estimates based on symmetric kill ratio:
-    - When RU is dominant (kill_ratio < 1), UA takes more losses.
-    - When UA is dominant (kill_ratio > 1), RU takes more losses.
+    - When RU is dominant (kill_ratio > 1), UA takes more losses.
+    - When UA is dominant (kill_ratio < 1), RU takes more losses.
     """
     levels = {
         1: 20,
@@ -267,11 +267,13 @@ def get_intensity_map(kill_ratio):
         5: 220
     }
     base = levels[intensity_level]
-    
-    if kill_ratio >= 1:
-        return (base, base * kill_ratio)   # RU takes base, UA scaled up
+
+    if kill_ratio > 1.0:
+        return base, base * kill_ratio      # RU = base, UA scaled up
+    elif kill_ratio < 1.0:
+        return base / kill_ratio, base      # RU scaled up, UA = base
     else:
-        return (base / kill_ratio, base)   # RU scaled up, UA takes base
+        return base, base                   # 1:1 ratio
 
 # Apply adjusted base casualty values
 base_rus, base_ukr = get_intensity_map(actual_kill_ratio)
