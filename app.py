@@ -54,26 +54,29 @@ def compute_relative_dominance(cmd_rus, cmd_ukr, logi_rus, logi_ukr, moral_rus, 
         "morale_delta": moral_rus - moral_ukr
     }
 
+# ===
 def compute_dominance_modifiers(deltas):
     """
-    Converts dominance deltas into balanced multipliers affecting casualty suppression and system efficiency.
-    - Boosts for positive advantage
-    - Penalties for negative delta
-    - Soft caps to avoid overpowering
+    Stronger, linear dominance scaling to affect suppression and system efficiency.
+    - Applies sharper penalty when one side is tactically dominated
+    - AI-aligned: allows 15–25% shift in casualty shaping
     """
-    def scale(delta, base=1.0, strength=0.10, cap=0.15):
-        return base + math.tanh(delta) * min(abs(delta) * strength, cap)
 
-    # Extract deltas
     cmd_delta = deltas.get("cmd_delta", 0)
     logi_delta = deltas.get("logi_delta", 0)
     morale_delta = deltas.get("morale_delta", 0)
     ad_delta = deltas.get("ad_delta", 0)
     ew_delta = deltas.get("ew_delta", 0)
 
+    suppression_score = cmd_delta + logi_delta
+    efficiency_score = morale_delta + ad_delta + ew_delta
+
+    suppression_mod = 1 + max(min(suppression_score * 0.25, 0.30), -0.25)
+    efficiency_mod = 1 + max(min(efficiency_score * 0.25, 0.30), -0.25)
+
     return {
-        "suppression_mod": scale(cmd_delta + logi_delta, base=1.0, strength=0.08, cap=0.12),
-        "efficiency_mod": scale(morale_delta + ad_delta + ew_delta, base=1.0, strength=0.07, cap=0.10)
+        "suppression_mod": suppression_mod,
+        "efficiency_mod": efficiency_mod
     }
 
 # Title and Intro
