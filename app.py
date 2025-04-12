@@ -679,33 +679,32 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
 
 # === Final Output Execution ===
 
-# === RUSSIAN SIDE ===
+# Step 1: Run Russian force and capture results
 results_rus = display_force("🇷🇺", "Russian",
-    base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
-    exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-    weapon_quality_rus, train_rus, coh_rus, weapons, base_slider=kia_ratio,
-    return_data=True  # ➕ Add this to return detailed KIA/WIA info
-)
+              base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
+              exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
+              weapon_quality_rus, train_rus, coh_rus, weapons, base_slider=kia_ratio,
+              return_data=True)
 
-# === UKRAINIAN SIDE ===
-results_ukr = display_force("🇺🇦", "Ukrainian",
-    base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
-    exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-    weapon_quality_ukr, train_ukr, coh_ukr, weapons, base_slider=kia_ratio,
-    return_data=True
-)
+# Step 2: Override Ukrainian casualties if kill ratio favors Russia
+if kill_ratio_slider > 0:
+    # Compute override based on RU KIA and kill ratio
+    override_kia, override_wia = enforce_kill_ratio(
+        results_rus["kia_range"], abs(kill_ratio_slider), kia_ratio
+    )
+    kia_min_ukr, kia_max_ukr = override_kia
+    wia_min_ukr, wia_max_ukr = enforce_kia_wia_sanity(*override_kia, *override_wia)
 
-# === APPLY OVERRIDE TO NON-DOMINANT SIDE ===
-if kill_ratio_slider != 0:
-    if kill_ratio_slider > 0:
-        # RU dominant → override UKR
-        ru_kia_range = results_rus["kia_range"]
-        override_kia, override_wia = enforce_kill_ratio(ru_kia_range, kill_ratio_slider, results_ukr["kia_ratio"])
-        results_ukr["kia_range"] = override_kia
-        results_ukr["wia_range"] = override_wia
-    else:
-        # UA dominant → override RU
-        ua_kia_range = results_ukr["kia_range"]
-        override_kia, override_wia = enforce_kill_ratio(ua_kia_range, abs(kill_ratio_slider), results_rus["_
+    # Step 3: Display Ukrainian force with overridden values
+    st.header("🇺🇦 Ukrainian Forces (Kill Ratio Adjusted)")
+    st.metric("KIA Estimate", f"{kia_min_ukr:,} - {kia_max_ukr:,}")
+    st.metric("WIA Estimate", f"{wia_min_ukr:,} - {wia_max_ukr:,}")
+    st.metric("KIA Ratio Used", f"{kia_ratio:.2f}")
+else:
+    # Step 4: UA advantage or Neutral — regular Ukrainian display
+    display_force("🇺🇦", "Ukrainian",
+                  base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
+                  exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
+                  weapon_quality_ukr, train_ukr, coh_ukr, weapons, base_slider=kia_ratio)
 
 # === Historical Conflict Benchmarks & Comparison ===
