@@ -503,7 +503,8 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 # === Casualty Calculation Logic ===
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
-                  weapon_quality, training, cohesion, weapons, base_slider):
+                  weapon_quality, training, cohesion, weapons, base_slider,
+                  is_dominant_side=False, actual_kill_ratio=1.0, kia_ratio_opponent=0.85):
 
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
@@ -520,7 +521,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 💡 Calculate dominance modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
-    # ✅ Calculate KIA ratio once for the whole force (AI logic)
+    # ✅ Calculate KIA ratio using AI model logic
     kia_ratio = calculate_kia_ratio(
         med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=base_slider
     )
@@ -540,18 +541,27 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     wia_min = sum(v[0] for v in wia_by_system.values())
     wia_max = sum(v[1] for v in wia_by_system.values())
 
-    # 🖥️ Display casualty ranges
-    df = pd.DataFrame({
+    # 🔁 Enforce kill ratio on the weaker side only
+    if not is_dominant_side:
+        (kia_min, kia_max), (wia_min, wia_max) = enforce_kill_ratio(
+            ru_kia_range=(kia_min, kia_max),
+            ratio=actual_kill_ratio,
+            kia_ratio_ukr=kia_ratio_opponent
+        )
+        total_min = kia_min + wia_min
+        total_max = kia_max + wia_max
+
+    # 📊 Display
+    st.header(f"{flag} {name} Forces")
+    st.dataframe(pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
         "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()},
         "KIA Est": {k: kia_by_system[k][1] for k in kia_by_system},
         "WIA Est": {k: wia_by_system[k][1] for k in wia_by_system}
-    })
+    }))
 
-    st.header(f"{flag} {name} Forces")
-    st.dataframe(df)
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
