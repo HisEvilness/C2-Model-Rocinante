@@ -419,6 +419,24 @@ def enforce_kia_wia_sanity(kia_min, kia_max, wia_min, wia_max):
     wia_max = max(wia_max, kia_max)
     return wia_min, wia_max
 
+# === Enforced Ratio Correction ===
+def enforce_kill_ratio(rus_kia_range, ratio, kia_ratio_ukr):
+    """
+    Adjusts Ukrainian KIA and WIA to enforce the global kill ratio logic.
+    """
+    ru_kia_min, ru_kia_max = rus_kia_range
+    ukr_kia_min = round(ru_kia_min * ratio)
+    ukr_kia_max = round(ru_kia_max * ratio)
+
+    # Ensure WIA is not lower than KIA
+    ukr_total_min = max(round(ukr_kia_min / kia_ratio_ukr), ukr_kia_min + 1)
+    ukr_total_max = max(round(ukr_kia_max / kia_ratio_ukr), ukr_kia_max + 1)
+
+    ukr_wia_min = ukr_total_min - ukr_kia_min
+    ukr_wia_max = ukr_total_max - ukr_kia_max
+
+    return (ukr_kia_min, ukr_kia_max), (ukr_wia_min, ukr_wia_max)
+
 # === Casualty Calculation ===
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready,
@@ -504,7 +522,7 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
 def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, duration,
                   enemy_exp, enemy_ew, s2s, ad_dens, ew_cov, ad_ready,
                   weapon_quality, training, cohesion, weapons, base_slider,
-                  is_dominant_side=False, actual_kill_ratio=1.0, kia_ratio_opponent=0.85):
+                  actual_kill_ratio=None, return_data=False):
 
     modifier = exp * morale_scaling(moral) * logistic_scaling(logi)
 
@@ -521,7 +539,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     # 💡 Calculate dominance modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
-    # ✅ Calculate KIA ratio using AI model logic
+    # ✅ Calculate KIA ratio once for the whole force (AI logic)
     kia_ratio = calculate_kia_ratio(
         med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=base_slider
     )
@@ -541,27 +559,26 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
     wia_min = sum(v[0] for v in wia_by_system.values())
     wia_max = sum(v[1] for v in wia_by_system.values())
 
-    # 🔁 Enforce kill ratio on the weaker side only
-    if not is_dominant_side:
-        (kia_min, kia_max), (wia_min, wia_max) = enforce_kill_ratio(
-            ru_kia_range=(kia_min, kia_max),
-            ratio=actual_kill_ratio,
-            kia_ratio_ukr=kia_ratio_opponent
-        )
-        total_min = kia_min + wia_min
-        total_max = kia_max + wia_max
+    # ✅ Return for override logic (enforced kill ratio post-process)
+    if return_data:
+        return {
+            "kia_range": (kia_min, kia_max),
+            "wia_range": (wia_min, wia_max),
+            "kia_ratio": kia_ratio
+        }
 
-    # 📊 Display
-    st.header(f"{flag} {name} Forces")
-    st.dataframe(pd.DataFrame({
+    # 🖥️ Display casualty ranges
+    df = pd.DataFrame({
         "Daily Min": {k: v[0] for k, v in daily_range.items()},
         "Daily Max": {k: v[1] for k, v in daily_range.items()},
         "Cumulative Min": {k: v[0] for k, v in cumulative_range.items()},
         "Cumulative Max": {k: v[1] for k, v in cumulative_range.items()},
         "KIA Est": {k: kia_by_system[k][1] for k in kia_by_system},
         "WIA Est": {k: wia_by_system[k][1] for k in wia_by_system}
-    }))
+    })
 
+    st.header(f"{flag} {name} Forces")
+    st.dataframe(df)
     st.metric("Total Casualties", f"{total_min:,} - {total_max:,}")
     st.metric("KIA Estimate", f"{kia_min:,} - {kia_max:,}")
     st.metric("WIA Estimate", f"{wia_min:,} - {wia_max:,}")
@@ -569,6 +586,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
 
     plot_casualty_chart(name, daily_range, cumulative_range)
     plot_daily_curve(title=name, daily_range=daily_range, duration=duration)
+
 
 # === Daily Casualty Curve Chart ===
 def plot_daily_curve(title, daily_range, duration):
@@ -660,14 +678,34 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     st.altair_chart(line_chart, use_container_width=True)
 
 # === Final Output Execution ===
-display_force("🇷🇺", "Russian",
-              base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
-              exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
-              weapon_quality_rus, train_rus, coh_rus, weapons, base_slider=kia_ratio)
 
-display_force("🇺🇦", "Ukrainian",
-              base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
-              exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
-              weapon_quality_ukr, train_ukr, coh_ukr, weapons, base_slider=kia_ratio)
+# === RUSSIAN SIDE ===
+results_rus = display_force("🇷🇺", "Russian",
+    base_rus, exp_rus, ew_ukr, cmd_rus, moral_rus, med_rus, logi_rus, duration_days,
+    exp_ukr, ew_rus, s2s_rus, ad_density_rus, ew_cover_rus, ad_ready_rus,
+    weapon_quality_rus, train_rus, coh_rus, weapons, base_slider=kia_ratio,
+    return_data=True  # ➕ Add this to return detailed KIA/WIA info
+)
+
+# === UKRAINIAN SIDE ===
+results_ukr = display_force("🇺🇦", "Ukrainian",
+    base_ukr, exp_ukr, ew_rus, cmd_ukr, moral_ukr, med_ukr, logi_ukr, duration_days,
+    exp_rus, ew_ukr, s2s_ukr, ad_density_ukr, ew_cover_ukr, ad_ready_ukr,
+    weapon_quality_ukr, train_ukr, coh_ukr, weapons, base_slider=kia_ratio,
+    return_data=True
+)
+
+# === APPLY OVERRIDE TO NON-DOMINANT SIDE ===
+if kill_ratio_slider != 0:
+    if kill_ratio_slider > 0:
+        # RU dominant → override UKR
+        ru_kia_range = results_rus["kia_range"]
+        override_kia, override_wia = enforce_kill_ratio(ru_kia_range, kill_ratio_slider, results_ukr["kia_ratio"])
+        results_ukr["kia_range"] = override_kia
+        results_ukr["wia_range"] = override_wia
+    else:
+        # UA dominant → override RU
+        ua_kia_range = results_ukr["kia_range"]
+        override_kia, override_wia = enforce_kill_ratio(ua_kia_range, abs(kill_ratio_slider), results_rus["_
 
 # === Historical Conflict Benchmarks & Comparison ===
