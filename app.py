@@ -282,6 +282,35 @@ base_rus, base_ukr = get_intensity_map(actual_kill_ratio)
 base_rus *= posture_rus_adj
 base_ukr *= posture_ukr_adj
 
+# === Enforce Ukrainian KIA/WIA from RU KIA and kill ratio ===
+
+def enforce_kill_ratio(ru_kia_range, kill_ratio, kia_ratio_ukr):
+    """
+    Adjust Ukrainian KIA and WIA based on Russian KIA and desired kill ratio.
+    """
+    ru_kia_min, ru_kia_max = ru_kia_range
+
+    # Apply kill ratio (e.g., RU:UA = 1:15 means UA = 15x RU)
+    ukr_kia_min = round(ru_kia_min * kill_ratio)
+    ukr_kia_max = round(ru_kia_max * kill_ratio)
+
+    # Derive WIA based on Ukrainian KIA ratio
+    total_ukr_min = round(ukr_kia_min / kia_ratio_ukr)
+    total_ukr_max = round(ukr_kia_max / kia_ratio_ukr)
+    ukr_wia_min = total_ukr_min - ukr_kia_min
+    ukr_wia_max = total_ukr_max - ukr_kia_max
+
+    return (ukr_kia_min, ukr_kia_max), (ukr_wia_min, ukr_wia_max)
+
+# 📦 After Russian force has been processed
+ru_kia_range = (
+    sum(v[0] for v in kia_by_system_rus.values()),  # min RU KIA
+    sum(v[1] for v in kia_by_system_rus.values())   # max RU KIA
+)
+
+# 🔄 Apply enforced kill ratio
+ukr_kia_range, uk
+
 # === Weapon System Shares ===
 share_values = {
     "Artillery": 0.62,
@@ -379,9 +408,18 @@ def compute_dominance_modifiers(deltas):
         "efficiency_mod": efficiency_mod
     }
 
-# === Fixed Weapon System Bar + Cumulative Line Chart ===
 from collections import OrderedDict
 
+# === Enforce KIA/WIA sanity check ===
+def enforce_kia_wia_sanity(kia_min, kia_max, wia_min, wia_max):
+    """
+    Ensures WIA is never less than KIA for both min and max values.
+    """
+    wia_min = max(wia_min, kia_min)
+    wia_max = max(wia_max, kia_max)
+    return wia_min, wia_max
+
+# === Casualty Calculation ===
 def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd, moral, logi,
                                 s2s, ad_density, ew_cover, ad_ready,
                                 weapon_quality, training, cohesion, weapons,
@@ -395,7 +433,6 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         st.warning("No active weapon systems. Please enable at least one.")
         return {}, {}, {}, {}
 
-    # Compute dominance scaling modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
     suppression_mod = dominance_mods["suppression_mod"]
     efficiency_mod = dominance_mods["efficiency_mod"]
@@ -448,11 +485,13 @@ def calculate_casualties_range(base_rate, modifier, duration, ew_enemy, med, cmd
         daily_max = round(daily_base * 1.05, 1)
 
         # === Apply updated AI-based KIA ratio per system
-        kia_ratio = calculate_kia_ratio(med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=0.30)
         kia_min = round(daily_min * kia_ratio * duration)
         kia_max = round(daily_max * kia_ratio * duration)
         wia_min = round(daily_min * (1 - kia_ratio) * duration)
         wia_max = round(daily_max * (1 - kia_ratio) * duration)
+
+        # ✅ Ensure WIA is not less than KIA
+        wia_min, wia_max = enforce_kia_wia_sanity(kia_min, kia_max, wia_min, wia_max)
 
         results[system] = (daily_min, daily_max)
         total[system] = (round(daily_min * duration), round(daily_max * duration))
@@ -478,7 +517,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
         deltas["ad_delta"] = ad_density_ukr - ad_density_rus
         deltas["ew_delta"] = ew_cover_ukr - ew_cover_rus
 
-    # 💡 Calculate modifiers
+    # 💡 Calculate dominance modifiers
     dominance_mods = compute_dominance_modifiers(deltas)
 
     # ✅ Calculate KIA ratio once for the whole force (AI logic)
@@ -486,7 +525,7 @@ def display_force(flag, name, base, exp, ew_enemy, cmd, moral, med, logi, durati
         med, logi, cmd, moral, training, cohesion, dominance_mods, base_slider=base_slider
     )
 
-    # 📊 Run updated AI-aligned casualty calculation
+    # 📊 Run casualty simulation
     daily_range, cumulative_range, kia_by_system, wia_by_system = calculate_casualties_range(
         base, modifier, duration, ew_enemy, med, cmd, moral, logi,
         s2s, ad_dens, ew_cov, ad_ready,
@@ -533,7 +572,13 @@ def plot_daily_curve(title, daily_range, duration):
         "Max": max_per_day
     })
 
-    melted = pd.melt(daily_df, id_vars="Day", value_vars=["Min", "Max"], var_name="Type", value_name="Casualties")
+    melted = pd.melt(
+        daily_df,
+        id_vars="Day",
+        value_vars=["Min", "Max"],
+        var_name="Type",
+        value_name="Casualties"
+    )
 
     chart = alt.Chart(melted).mark_line().encode(
         x=alt.X("Day:Q", title="Day"),
@@ -551,7 +596,7 @@ def plot_daily_curve(title, daily_range, duration):
 def plot_casualty_chart(title, daily_range, cumulative_range):
     st.subheader(f"{title} Casualty Distribution")
 
-    # Preserve order
+    # Preserve weapon system order
     systems = list(daily_range.keys())
 
     chart_data = pd.DataFrame({
@@ -564,32 +609,38 @@ def plot_casualty_chart(title, daily_range, cumulative_range):
     chart_data["Max End"] = chart_data["Min"] + chart_data["Delta"]
 
     base = alt.Chart(chart_data).mark_bar(size=40, color="#bbbbbb").encode(
-        x=alt.X('Weapon System:N', sort=None, title='Weapon System'),
-        y=alt.Y('Min:Q', title='Min Casualties')
+        x=alt.X("Weapon System:N", sort=None, title="Weapon System"),
+        y=alt.Y("Min:Q", title="Min Casualties")
     )
 
     delta = alt.Chart(chart_data).mark_bar(size=40, color="#1f77b4").encode(
-        x=alt.X('Weapon System:N', sort=None),
-        y='Min:Q',
-        y2='Max End:Q',
-        tooltip=['Weapon System', 'Min', 'Max']
+        x=alt.X("Weapon System:N", sort=None),
+        y="Min:Q",
+        y2="Max End:Q",
+        tooltip=["Weapon System", "Min", "Max"]
     )
 
     st.altair_chart(base + delta, use_container_width=True)
 
-    # Cumulative Line Chart
+    # === Cumulative Casualty Line Chart ===
     line_data = pd.DataFrame({
         "Days": list(range(0, duration_days + 1, 7)),
         "Min": [sum(v[0] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)],
         "Max": [sum(v[1] for v in daily_range.values()) * i for i in range(0, duration_days + 1, 7)]
     })
 
-    line_data = pd.melt(line_data, id_vars='Days', value_vars=['Min', 'Max'], var_name='Type', value_name='Casualties')
+    line_data = pd.melt(
+        line_data,
+        id_vars="Days",
+        value_vars=["Min", "Max"],
+        var_name="Type",
+        value_name="Casualties"
+    )
 
-    line_chart = alt.Chart(line_data).mark_line(interpolate='monotone').encode(
-        x=alt.X('Days:Q', title="Days"),
-        y=alt.Y('Casualties:Q', title="Cumulative Casualties"),
-        color='Type:N'
+    line_chart = alt.Chart(line_data).mark_line(interpolate="monotone").encode(
+        x=alt.X("Days:Q", title="Days"),
+        y=alt.Y("Casualties:Q", title="Cumulative Casualties"),
+        color="Type:N"
     ).properties(
         title=f"{title} Cumulative Casualty Curve",
         width=700,
